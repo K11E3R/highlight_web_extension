@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Persistent Highlighter</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header class="app-header">
+      <div>
+        <p class="eyebrow">Persistent Highlighter</p>
+        <h1>Remember what matters</h1>
+        <p>Highlights stay attached to <span id="pageHost">your page</span>.</p>
+      </div>
+      <div class="header-badges">
+        <span id="highlightCount" class="badge">0</span>
+        <button id="refreshHighlights" class="icon-button" title="Reload highlights" aria-label="Reload highlights">
+          <span>↻</span>
+        </button>
+      </div>
+    </header>
+
+    <section class="card create-section">
+      <label class="field">
+        <span>Note (optional)</span>
+        <textarea id="noteInput" rows="2" placeholder="Why is this highlight important?"></textarea>
+      </label>
+      <div class="field color-field">
+        <div class="color-field-header">
+          <span>Color</span>
+          <div class="color-swatches" role="list">
+            <button class="color-chip" data-color="#fff176" aria-label="Soft yellow"></button>
+            <button class="color-chip" data-color="#bbf7d0" aria-label="Mint"></button>
+            <button class="color-chip" data-color="#bfdbfe" aria-label="Sky"></button>
+            <button class="color-chip" data-color="#fed7aa" aria-label="Peach"></button>
+            <button class="color-chip" data-color="#fecdd3" aria-label="Rose"></button>
+          </div>
+        </div>
+        <input id="colorInput" type="color" value="#fff176" aria-label="Custom color" />
+      </div>
+      <button id="createHighlight" class="primary">
+        <span>Highlight current selection</span>
+      </button>
+      <p class="help-text">Select text on the page, then press the button.</p>
+      <p id="feedback" role="alert"></p>
+    </section>
+
+    <section class="card list-section">
+      <div class="list-header">
+        <div>
+          <h2>Saved highlights</h2>
+          <p id="pageMeta">Nothing loaded yet</p>
+        </div>
+        <div class="list-tools">
+          <label class="search-field">
+            <span class="sr-only">Search highlights</span>
+            <input id="searchInput" type="search" placeholder="Search text or notes" />
+          </label>
+          <button id="clearHighlights" class="ghost">Clear page</button>
+        </div>
+      </div>
+      <div id="emptyState" class="empty-state">
+        <h3>No highlights yet</h3>
+        <p>Select some text on the page and save your first highlight.</p>
+      </div>
+      <ul id="highlightList" class="highlight-list" aria-live="polite"></ul>
+    </section>
+
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>
