@@ -75,7 +75,8 @@ function createHighlightElement(id, color) {
   const highlightColor = color || '#fffd54';
   span.style.backgroundColor = highlightColor;
   span.style.setProperty('--highlight-color', highlightColor);
-  // padding and borderRadius are defined in CSS class; do not set inline
+  span.style.padding = '0 1px';
+  span.style.borderRadius = '2px';
   return span;
 }
 

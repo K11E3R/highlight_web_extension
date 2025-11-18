@@ -15,7 +15,7 @@ function normalizeUrl(url) {
     parsed.hash = '';
     return parsed.toString();
   } catch (error) {
-    return url?.split('#')[0] || url;
+    return url.split('#')[0];
   }
 }
 
