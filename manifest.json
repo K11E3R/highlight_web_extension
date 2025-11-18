@@ -1,0 +1,21 @@
+{
+  "manifest_version": 3,
+  "name": "Persistent Highlighter",
+  "version":  "1.0.0",
+  "description": "Highlight any text on the web, save it with notes, and restore highlights automatically when you revisit.",
+  "permissions": ["storage", "activeTab", "scripting"],
+  "action": {
+    "default_popup": "popup/popup.html",
+    "default_title": "Persistent Highlighter"
+  },
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": ["<all_urls>"],
+      "js": ["contentScript.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
