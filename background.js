@@ -9,40 +9,68 @@ async function saveHighlightMap(map) {
   await chrome.storage.local.set({ [STORAGE_KEY]: map });
 }
 
+function normalizeUrl(url) {
+  try {
+    const parsed = new URL(url);
+    parsed.hash = '';
+    return parsed.toString();
+  } catch (error) {
+    return url?.split('#')[0] || url;
+  }
+}
+
 async function getHighlightsForUrl(url) {
   const map = await getHighlightMap();
-  return map[url] || [];
+  const cleanUrl = normalizeUrl(url);
+  return map[cleanUrl] || [];
 }
 
 async function saveHighlight(highlight) {
   const map = await getHighlightMap();
-  const existing = map[highlight.url] || [];
+  const cleanUrl = normalizeUrl(highlight.url);
+  const existing = map[cleanUrl] || [];
   existing.push(highlight);
-  map[highlight.url] = existing;
+  map[cleanUrl] = existing;
   await saveHighlightMap(map);
   return highlight;
 }
 
 async function updateHighlight(url, updatedHighlight) {
   const map = await getHighlightMap();
-  const list = map[url] || [];
+  const cleanUrl = normalizeUrl(url);
+  const list = map[cleanUrl] || [];
   const idx = list.findIndex((item) => item.id === updatedHighlight.id);
   if (idx === -1) {
     throw new Error('Highlight not found');
   }
   list[idx] = { ...list[idx], ...updatedHighlight };
-  map[url] = list;
+  map[cleanUrl] = list;
   await saveHighlightMap(map);
   return list[idx];
 }
 
 async function deleteHighlight(url, id) {
   const map = await getHighlightMap();
-  const list = map[url] || [];
+  const cleanUrl = normalizeUrl(url);
+  const list = map[cleanUrl] || [];
   const filtered = list.filter((item) => item.id !== id);
-  map[url] = filtered;
+  if (filtered.length) {
+    map[cleanUrl] = filtered;
+  } else {
+    delete map[cleanUrl];
+  }
   await saveHighlightMap(map);
   return filtered;
+}
+
+async function clearHighlights(url) {
+  const map = await getHighlightMap();
+  const cleanUrl = normalizeUrl(url);
+  if (map[cleanUrl]) {
+    delete map[cleanUrl];
+    await saveHighlightMap(map);
+  }
+  return [];
 }
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -70,6 +98,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'DELETE_HIGHLIGHT': {
         const remaining = await deleteHighlight(message.url, message.id);
         sendResponse({ success: true, highlights: remaining });
+        break;
+      }
+      case 'CLEAR_HIGHLIGHTS': {
+        await clearHighlights(message.url);
+        sendResponse({ success: true });
         break;
       }
       default:
