@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Persistent Highlighter</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Persistent Highlighter</h1>
+      <p>Save highlights with optional notes and revisit them any time.</p>
+    </header>
+
+    <section class="create-section">
+      <label class="field">
+        <span>Note (optional)</span>
+        <input id="noteInput" type="text" placeholder="Why is this important?" />
+      </label>
+      <label class="field color-field">
+        <span>Color</span>
+        <input id="colorInput" type="color" value="#fff176" />
+      </label>
+      <button id="createHighlight">Highlight selection</button>
+      <p class="help-text">Select text on the page first, then click “Highlight selection”.</p>
+      <p id="feedback" role="alert"></p>
+    </section>
+
+    <section class="list-section">
+      <div class="list-header">
+        <h2>Saved highlights</h2>
+        <span id="highlightCount" class="badge">0</span>
+      </div>
+      <div id="emptyState" class="empty-state">No highlights saved for this page yet.</div>
+      <ul id="highlightList"></ul>
+    </section>
+
+    <script src="popup.js" type="module"></script>
+  </body>
+</html>
