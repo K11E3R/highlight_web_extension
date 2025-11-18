@@ -1,0 +1,12 @@
+{
+  "name": "highlight-web-extension",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "generate:icons": "node scripts/generate-icons.js",
+    "postinstall": "npm run generate:icons"
+  },
+  "devDependencies": {
+    "pngjs": "^7.0.0"
+  }
+}
