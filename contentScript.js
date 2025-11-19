@@ -1,10 +1,3 @@
-(() => {
-  const globalScope = typeof window !== 'undefined' ? window : self;
-  if (globalScope.__persistentHighlighterInjected) {
-    return;
-  }
-  globalScope.__persistentHighlighterInjected = true;
-
 const HIGHLIGHT_CLASS = 'persistent-highlighter-span';
 const HIGHLIGHT_PULSE_CLASS = 'persistent-highlighter-pulse';
 const TOOLTIP_ID = 'persistent-highlighter-tooltip';
@@ -849,8 +842,5 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
-<<<<<<< HEAD
 
 })();
-=======
->>>>>>> fdc1ee0 ([FIX] refactor logic / local test)
