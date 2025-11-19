@@ -849,8 +849,5 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
-<<<<<<< HEAD
 
 })();
-=======
->>>>>>> fdc1ee0 ([FIX] refactor logic / local test)
