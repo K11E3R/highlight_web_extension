@@ -1,45 +1,71 @@
 # Persistent Highlighter
 
-A Chrome extension that lets you highlight any text on the web, add contextual notes, and automatically restores those highlights when you revisit the page. Every page gets its own set of stored highlights, so you always pick up exactly where you left off.
+A modern Chrome extension that lets you highlight any text on the web, add notes, and automatically restore highlights when you revisit pages.
 
 ## Features
 
-- ✍️ **Create highlights** from the popup with a single click, complete with custom notes and color swatches.
-- 🧠 **Automatic restore** – highlights are scoped per-URL and reapplied on load, so context is never lost.
-- 🎨 **Polished editing UI** with live search, character counts, quick color chips, and inline note editing.
-- 🔍 **Navigate fast** using “View on page” (smooth scroll + pulse animation) or copy highlight text to the clipboard.
-- 🧹 **Full CRUD** controls including one-click clearing of all highlights on the current page.
-- 🖼️ **Custom icon set** so the extension looks at home in Chrome’s toolbar, action menu, and Web Store listing.
-  The icons are procedurally generated to keep the repo binary-free—see [Icon generation](#icon-generation).
+- 🎨 **Beautiful UI** - Clean, modern interface with smooth animations
+- ✍️ **Smart Highlighting** - Select text and highlight with custom colors
+- 📝 **Notes** - Add contextual notes to your highlights
+- 🔍 **Search** - Quickly find highlights by text or notes
+- 💾 **Auto-save** - Highlights persist across sessions
+- 🎯 **Quick Actions** - View, copy, edit, or delete highlights instantly
+- 🌙 **Dark Mode** - Automatic dark mode support
 
-## Development
+## Installation
 
-1. **Install dependencies & generate icons**
-
+1. Clone this repository
+2. Install dependencies:
    ```bash
    npm install
    ```
+   This will automatically generate the extension icons.
 
-   The repository can’t store binary assets, so installing will automatically run `npm run generate:icons` (via a `postinstall` hook) to draw the highlighter artwork into `icons/icon*.png`.
+3. Load the extension in Chrome:
+   - Open `chrome://extensions`
+   - Enable "Developer mode"
+   - Click "Load unpacked"
+   - Select this repository folder
 
-2. Visit `chrome://extensions` in Chrome.
-3. Enable **Developer mode** (top-right toggle).
-4. Click **Load unpacked** and select this repository folder.
-5. Navigate to any page, select text, open the extension popup, and click **Highlight current selection**.
-6. Use the popup to search, edit, or delete highlights. Click **View** to center a highlight on the page or **Clear page** to wipe them all.
+## Usage
 
-All data lives in `chrome.storage.local`, so nothing leaves the device. If you ever want to refresh the branding, re-run `npm run generate:icons` to regenerate the PNGs.
+1. **Create a highlight:**
+   - Select text on any webpage
+   - Open the extension popup
+   - Click "Highlight Selection"
 
-## Icon generation
+2. **Add notes:**
+   - Click on any highlight in the popup
+   - Type your note in the text area
+   - Click "Save" or press Ctrl/Cmd + Enter
 
-The repository intentionally avoids binary blobs (some tooling rejects them), so the toolbar/Web Store art is generated on-demand. The `scripts/generate-icons.js` helper draws the layered highlighter motif using [`pngjs`](https://github.com/lukeapage/pngjs) and exports the required 16/32/48/128 px PNGs. Run `npm run generate:icons` whenever you want to tweak colors or regenerate the files—Chrome will automatically pick up the updated artwork the next time you reload the unpacked extension.
+3. **Change colors:**
+   - Use the color chips or color picker
+   - Changes auto-save after 500ms
 
-## Testing
+4. **Search highlights:**
+   - Use the search box to filter highlights by text or notes
 
-Run the automated manifest/lint check with [`web-ext`](https://github.com/mozilla/web-ext) (requires Node.js) to validate the manifest and icons (be sure the generated icons exist first by running `npm install`):
+5. **Context menu:**
+   - Right-click selected text
+   - Choose "Highlight selection"
+
+## Limitations
+
+- PDF files are not supported (use HTML versions when available)
+- Chrome internal pages (`chrome://`) are not supported
+- Some pages may restrict content script execution
+
+## Development
 
 ```bash
+# Generate icons
+npm run generate:icons
+
+# Lint extension
 npx web-ext lint --source-dir .
 ```
 
-This validates the Manifest V3 wiring and ensures the extension loads without warnings.
+## License
+
+MIT

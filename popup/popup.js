@@ -1,491 +1,253 @@
-const NOTE_MAX_LENGTH = 280;
-const noteInput = document.getElementById('noteInput');
-const colorInput = document.getElementById('colorInput');
-const colorChips = Array.from(document.querySelectorAll('.color-chip'));
-const createBtn = document.getElementById('createHighlight');
-const feedback = document.getElementById('feedback');
-const highlightList = document.getElementById('highlightList');
-const highlightCount = document.getElementById('highlightCount');
-const emptyState = document.getElementById('emptyState');
-const searchInput = document.getElementById('searchInput');
-const clearBtn = document.getElementById('clearHighlights');
-const pageMeta = document.getElementById('pageMeta');
-const pageHost = document.getElementById('pageHost');
-const refreshBtn = document.getElementById('refreshHighlights');
+// Utilities inlined for simplicity
 
-const emptyStateHeading = emptyState?.querySelector('h3');
-const emptyStateCopy = emptyState?.querySelector('p');
-const defaultEmptyHeading = emptyStateHeading?.textContent || '';
-const defaultEmptyCopy = emptyStateCopy?.textContent || '';
+// We'll need to create utils.js or just inline it since it's small
+// For simplicity, I'll inline the logic or use standard chrome APIs directly here.
 
-let activeTabId = null;
-let currentUrl = null;
-let highlights = [];
-let searchTerm = '';
+const state = {
+  highlights: [],
+  currentUrl: '',
+  view: 'page' // 'page' or 'all'
+};
 
-const runtimeMessage = (message) =>
-  new Promise((resolve) => {
-    chrome.runtime.sendMessage(message, (response) => {
-      if (chrome.runtime.lastError) {
-        resolve({ success: false, error: chrome.runtime.lastError.message });
-        return;
-      }
-      resolve(response);
-    });
-  });
-
-const tabMessage = (tabId, message) =>
-  new Promise((resolve) => {
-    if (!tabId) {
-      resolve({ success: false, error: 'Missing active tab' });
-      return;
-    }
-    chrome.tabs.sendMessage(tabId, message, (response) => {
-      if (chrome.runtime.lastError) {
-        resolve({ success: false, error: chrome.runtime.lastError.message });
-        return;
-      }
-      resolve(response);
-    });
-  });
-
-function setFeedback(message, isError = false) {
-  if (!feedback) return;
-  feedback.textContent = message || '';
-  feedback.style.color = isError ? '#dc2626' : '#0f766e';
-}
-
-function autoResize(textarea) {
-  if (!textarea) return;
-  textarea.style.height = 'auto';
-  textarea.style.height = `${Math.max(textarea.scrollHeight, 48)}px`;
-}
-
-function getCleanUrl(url) {
-  try {
-    const parsed = new URL(url);
-    parsed.hash = '';
-    return parsed.toString();
-  } catch (error) {
-    return url?.split('#')[0];
-  }
-}
-
-function updatePageMeta(url) {
-  if (!pageMeta || !pageHost) return;
-  try {
-    const parsed = new URL(url);
-    const host = parsed.hostname.replace(/^www\./, '');
-    pageMeta.textContent = `${host}${parsed.pathname}`;
-    pageHost.textContent = host || 'this page';
-  } catch (error) {
-    pageMeta.textContent = url || 'Unknown page';
-    pageHost.textContent = 'this page';
-  }
-}
-
-function setActiveChip(color) {
-  if (!color) return;
-  const normalized = color.toLowerCase();
-  colorChips.forEach((chip) => {
-    chip.classList.toggle('active', chip.dataset.color?.toLowerCase() === normalized);
-  });
-}
-
-function formatTimestamp(timestamp) {
-  if (!timestamp) return '';
-  try {
-    return new Intl.DateTimeFormat(undefined, {
-      dateStyle: 'medium',
-      timeStyle: 'short',
-    }).format(new Date(timestamp));
-  } catch (error) {
-    return new Date(timestamp).toLocaleString();
-  }
-}
-
-function filterHighlights() {
-  if (!searchTerm) {
-    return highlights.slice();
-  }
-  const term = searchTerm.toLowerCase();
-  return highlights.filter((item) => {
-    return [item.text, item.note, item.title]
-      .filter((field) => typeof field === 'string' && field.trim().length)
-      .some((field) => field.toLowerCase().includes(term));
-  });
-}
-
-function createActionButton(label, className) {
-  const button = document.createElement('button');
-  button.textContent = label;
-  if (className) {
-    button.classList.add(className);
-  }
-  return button;
-}
-
-function updateEmptyState(isFiltered) {
-  if (!emptyState || !highlightList) return;
-  const hasHighlights = highlightList.children.length > 0;
-  emptyState.style.display = hasHighlights ? 'none' : 'block';
-  if (!hasHighlights && emptyStateHeading && emptyStateCopy) {
-    if (isFiltered) {
-      emptyStateHeading.textContent = 'No highlights match your search';
-      emptyStateCopy.textContent = 'Try searching with different keywords or clear the filter.';
-    } else {
-      emptyStateHeading.textContent = defaultEmptyHeading;
-      emptyStateCopy.textContent = defaultEmptyCopy;
-    }
-  }
-}
-
-function updateClearButton() {
-  if (clearBtn) {
-    clearBtn.disabled = !highlights.length;
-  }
-}
-
-function renderHighlights() {
-  if (!highlightList || !highlightCount) return;
-  const filtered = filterHighlights().sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-  highlightList.innerHTML = '';
-  highlightCount.textContent = highlights.length.toString();
-  updateClearButton();
-
-  if (filtered.length === 0) {
-    updateEmptyState(Boolean(searchTerm));
-    return;
-  }
-
-  const fragment = document.createDocumentFragment();
-  filtered.forEach((item) => {
-    const li = document.createElement('li');
-    li.dataset.id = item.id;
-
-    const card = document.createElement('article');
-    card.className = 'highlight-card';
-
-    const preview = document.createElement('div');
-    preview.className = 'highlight-preview';
-
-    const dot = document.createElement('span');
-    dot.className = 'color-dot';
-    dot.style.background = item.color || '#fff176';
-
-    const text = document.createElement('div');
-    text.className = 'highlight-text';
-    text.textContent = item.text || '—';
-
-    preview.append(dot, text);
-
-    const meta = document.createElement('div');
-    meta.className = 'highlight-meta';
-    const leftMeta = document.createElement('span');
-    leftMeta.textContent = formatTimestamp(item.createdAt);
-    const rightMeta = document.createElement('span');
-    rightMeta.textContent = item.title || 'This page';
-    meta.append(leftMeta, rightMeta);
-
-    const noteField = document.createElement('textarea');
-    noteField.className = 'note-input';
-    noteField.placeholder = 'Add a note';
-    noteField.maxLength = NOTE_MAX_LENGTH;
-    noteField.value = item.note || '';
-    autoResize(noteField);
-    noteField.addEventListener('input', () => autoResize(noteField));
-
-    const highlightControls = document.createElement('div');
-    highlightControls.className = 'highlight-controls';
-
-    const colorPicker = document.createElement('input');
-    colorPicker.type = 'color';
-    colorPicker.value = item.color || '#fff176';
-    colorPicker.addEventListener('input', () => {
-      dot.style.background = colorPicker.value;
-    });
-
-    const noteHint = document.createElement('span');
-    noteHint.className = 'note-hint';
-    noteHint.textContent = `${noteField.value.length}/${NOTE_MAX_LENGTH}`;
-    noteField.addEventListener('input', () => {
-      noteHint.textContent = `${noteField.value.length}/${NOTE_MAX_LENGTH}`;
-    });
-
-    noteField.addEventListener('keydown', (event) => {
-      if ((event.metaKey || event.ctrlKey) && event.key === 'Enter') {
-        handleUpdate(item.id, noteField.value, colorPicker.value);
-      }
-    });
-
-    highlightControls.append(colorPicker, noteHint);
-
-    const actions = document.createElement('div');
-    actions.className = 'actions';
-
-    const viewBtn = createActionButton('View', 'view');
-    viewBtn.addEventListener('click', () => focusHighlight(item.id));
-
-    const copyBtn = createActionButton('Copy text', 'secondary');
-    copyBtn.addEventListener('click', () => copyHighlightText(item.text));
-
-    const updateBtn = createActionButton('Save', 'secondary');
-    updateBtn.addEventListener('click', () =>
-      handleUpdate(item.id, noteField.value, colorPicker.value, updateBtn)
-    );
-
-    const deleteBtn = createActionButton('Delete', 'delete');
-    deleteBtn.addEventListener('click', () => handleDelete(item.id, deleteBtn));
-
-    actions.append(viewBtn, copyBtn, updateBtn, deleteBtn);
-    card.append(preview, meta, noteField, highlightControls, actions);
-    li.appendChild(card);
-    fragment.appendChild(li);
-  });
-
-  highlightList.appendChild(fragment);
-  updateEmptyState(false);
-}
-
-async function handleCreate() {
-  if (!activeTabId) {
-    setFeedback('Unable to determine active tab.', true);
-    return;
-  }
-  if (!createBtn) return;
-  createBtn.disabled = true;
-  setFeedback('Saving highlight...');
-  const response = await tabMessage(activeTabId, {
-    type: 'CREATE_HIGHLIGHT',
-    note: (noteInput?.value || '').trim(),
-    color: colorInput?.value || '#fff176',
-  });
-
-  if (!response?.success) {
-    setFeedback(response?.error || 'Please select text to highlight.', true);
-    createBtn.disabled = false;
-    return;
-  }
-
-  const saveResponse = await runtimeMessage({
-    type: 'SAVE_HIGHLIGHT',
-    highlight: response.highlight,
-  });
-  createBtn.disabled = false;
-
-  if (!saveResponse?.success) {
-    setFeedback(saveResponse?.error || 'Failed to save highlight.', true);
-    return;
-  }
-
-  highlights.push(response.highlight);
-  renderHighlights();
-  if (noteInput) {
-    noteInput.value = '';
-    autoResize(noteInput);
-  }
-  setFeedback('Highlight saved!');
-}
-
-async function handleUpdate(id, note, color, triggerBtn) {
-  if (triggerBtn) {
-    triggerBtn.disabled = true;
-  }
-  const response = await runtimeMessage({
-    type: 'UPDATE_HIGHLIGHT',
-    url: currentUrl,
-    highlight: { id, note: note.trim(), color },
-  });
-  if (!response?.success) {
-    setFeedback(response?.error || 'Unable to update highlight.', true);
-    if (triggerBtn) triggerBtn.disabled = false;
-    return;
-  }
-  highlights = highlights.map((item) =>
-    item.id === id ? { ...item, note: note.trim(), color } : item
-  );
-  renderHighlights();
-  if (activeTabId) {
-    await tabMessage(activeTabId, {
-      type: 'UPDATE_HIGHLIGHT_STYLE',
-      id,
-      color,
-    });
-  }
-  if (triggerBtn) {
-    triggerBtn.disabled = false;
-  }
-  setFeedback('Highlight updated.');
-}
-
-async function handleDelete(id, triggerBtn) {
-  if (triggerBtn) {
-    triggerBtn.disabled = true;
-  }
-  const response = await runtimeMessage({
-    type: 'DELETE_HIGHLIGHT',
-    url: currentUrl,
-    id,
-  });
-  if (!response?.success) {
-    setFeedback(response?.error || 'Unable to delete highlight.', true);
-    if (triggerBtn) triggerBtn.disabled = false;
-    return;
-  }
-  highlights = highlights.filter((item) => item.id !== id);
-  renderHighlights();
-  if (activeTabId) {
-    await tabMessage(activeTabId, { type: 'REMOVE_HIGHLIGHT', id });
-  }
-  if (triggerBtn) {
-    triggerBtn.disabled = false;
-  }
-  setFeedback('Highlight deleted.');
-}
-
-async function focusHighlight(id) {
-  const response = await tabMessage(activeTabId, {
-    type: 'FOCUS_HIGHLIGHT',
-    id,
-  });
-  if (!response?.success) {
-    setFeedback('Could not locate that highlight on the page.', true);
-    return;
-  }
-  setFeedback('Centered highlight on page.');
-}
-
-async function copyHighlightText(text) {
-  if (!text) {
-    setFeedback('Nothing to copy yet.', true);
-    return;
-  }
-  try {
-    await navigator.clipboard.writeText(text);
-    setFeedback('Highlight copied to clipboard.');
-  } catch (error) {
-    setFeedback('Clipboard access was blocked.', true);
-  }
-}
-
-async function handleClearAll() {
-  if (!highlights.length) {
-    setFeedback('No highlights to clear.', true);
-    return;
-  }
-  if (clearBtn) {
-    clearBtn.disabled = true;
-  }
-  const response = await runtimeMessage({
-    type: 'CLEAR_HIGHLIGHTS',
-    url: currentUrl,
-  });
-  if (!response?.success) {
-    setFeedback(response?.error || 'Unable to clear highlights.', true);
-    if (clearBtn) clearBtn.disabled = false;
-    return;
-  }
-  highlights = [];
-  renderHighlights();
-  if (activeTabId) {
-    await tabMessage(activeTabId, { type: 'CLEAR_PAGE_HIGHLIGHTS' });
-  }
-  if (clearBtn) {
-    clearBtn.disabled = false;
-  }
-  setFeedback('Cleared highlights for this page.');
-}
-
-function setRefreshState(isLoading) {
-  if (!refreshBtn) return;
-  refreshBtn.disabled = Boolean(isLoading);
-  refreshBtn.classList.toggle('spinning', Boolean(isLoading));
-}
-
-async function loadHighlights(showToast = false) {
-  if (!currentUrl) return;
-  setRefreshState(true);
-  const response = await runtimeMessage({ type: 'GET_HIGHLIGHTS', url: currentUrl });
-  setRefreshState(false);
-  if (!response?.success) {
-    setFeedback('Unable to load highlights for this page.', true);
-    return;
-  }
-  highlights = response.highlights || [];
-  renderHighlights();
-  if (showToast) {
-    setFeedback('Highlights refreshed.');
-  }
-}
-
-const getActiveTab = () =>
-  new Promise((resolve) => {
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-      resolve(tabs?.[0]);
-    });
-  });
+// DOM Elements
+const elements = {
+  list: document.getElementById('highlightsList'),
+  emptyState: document.getElementById('emptyState'),
+  countBadge: document.getElementById('countBadge'),
+  clearBtn: document.getElementById('clearAllBtn'),
+  refreshBtn: document.getElementById('refreshBtn'),
+  pdfWarning: document.getElementById('pdfWarning'),
+  viewPageBtn: document.getElementById('viewPageBtn'),
+  viewAllBtn: document.getElementById('viewAllBtn')
+};
 
 async function init() {
-  if (noteInput) {
-    noteInput.maxLength = NOTE_MAX_LENGTH;
-    autoResize(noteInput);
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+
+  if (!tab) return;
+
+  // Check for PDF
+  if (tab.url.endsWith('.pdf') || tab.title.endsWith('.pdf')) {
+    elements.pdfWarning.classList.remove('hidden');
   }
-  const tab = await getActiveTab();
-  if (!tab || !tab.id || !tab.url) {
-    setFeedback('Please open a regular tab to use the extension.', true);
+
+  state.currentUrl = tab.url;
+  loadHighlights();
+
+  // Listeners
+  elements.refreshBtn.addEventListener('click', loadHighlights);
+  elements.clearBtn.addEventListener('click', clearAll);
+
+  elements.viewPageBtn.addEventListener('click', () => switchView('page'));
+  elements.viewAllBtn.addEventListener('click', () => switchView('all'));
+}
+
+function switchView(view) {
+  state.view = view;
+  elements.viewPageBtn.classList.toggle('active', view === 'page');
+  elements.viewAllBtn.classList.toggle('active', view === 'all');
+  loadHighlights();
+}
+
+async function loadHighlights() {
+  // Spin icon
+  elements.refreshBtn.classList.add('spinning');
+
+  try {
+    let response;
+    if (state.view === 'page') {
+      response = await chrome.runtime.sendMessage({
+        type: 'GET_HIGHLIGHTS',
+        url: state.currentUrl
+      });
+    } else {
+      response = await chrome.runtime.sendMessage({
+        type: 'GET_ALL_HIGHLIGHTS'
+      });
+    }
+
+    if (response && response.highlights) {
+      state.highlights = response.highlights;
+      render();
+    }
+  } catch (e) {
+    console.error('Failed to load highlights', e);
+  } finally {
+    setTimeout(() => elements.refreshBtn.classList.remove('spinning'), 500);
+  }
+}
+
+function render() {
+  // Clear list (except empty state which we toggle)
+  Array.from(elements.list.children).forEach(child => {
+    if (child.id !== 'emptyState') child.remove();
+  });
+
+  const count = state.highlights.length;
+  elements.countBadge.textContent = count;
+  elements.clearBtn.disabled = count === 0 || state.view === 'all'; // Disable clear all in global view for safety
+
+  if (count === 0) {
+    elements.emptyState.style.display = 'block';
+    elements.emptyState.querySelector('h3').textContent = state.view === 'page' ? 'No highlights yet' : 'No saved highlights';
     return;
   }
-  activeTabId = tab.id;
-  currentUrl = getCleanUrl(tab.url);
-  updatePageMeta(currentUrl);
-  if (colorInput) {
-    setActiveChip(colorInput.value);
-  }
-  await loadHighlights();
-}
 
-if (createBtn) {
-  createBtn.addEventListener('click', () => handleCreate());
-}
+  elements.emptyState.style.display = 'none';
 
-if (searchInput) {
-  searchInput.addEventListener('input', (event) => {
-    searchTerm = event.target.value;
-    renderHighlights();
+  state.highlights.forEach(h => {
+    const card = createCard(h);
+    elements.list.appendChild(card);
   });
 }
 
-if (clearBtn) {
-  clearBtn.addEventListener('click', () => handleClearAll());
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
-if (refreshBtn) {
-  refreshBtn.addEventListener('click', () => loadHighlights(true));
-}
+function createCard(highlight) {
+  const div = document.createElement('div');
+  div.className = 'highlight-card';
 
-if (noteInput) {
-  noteInput.addEventListener('input', () => autoResize(noteInput));
-}
+  const sourceUrlHtml = state.view === 'all' && highlight.sourceUrl
+    ? `<div class="source-url" title="${escapeHtml(highlight.sourceUrl)}">${escapeHtml(new URL(highlight.sourceUrl).hostname)}</div>`
+    : '';
 
-if (colorInput) {
-  colorInput.addEventListener('input', (event) => {
-    setActiveChip(event.target.value);
-  });
-}
+  const highlightText = highlight.text ? escapeHtml(highlight.text.trim()) : 'No text captured';
+  const noteText = highlight.note ? escapeHtml(highlight.note) : '';
 
-colorChips.forEach((chip) => {
-  chip.style.setProperty('--chip-color', chip.dataset.color);
-  chip.addEventListener('click', () => {
-    const color = chip.dataset.color;
-    if (colorInput) {
-      colorInput.value = color;
+  div.innerHTML = `
+    ${sourceUrlHtml}
+    <div class="card-header">
+      <div class="color-indicator" style="background-color: ${escapeHtml(highlight.color || '#FFEB3B')}"></div>
+      <div class="card-actions">
+        <button class="icon-btn-small locate-btn" title="Scroll to highlight">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+        </button>
+        <button class="icon-btn-small delete-btn" title="Delete highlight">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+    <div class="highlight-text">${highlightText}</div>
+    <textarea class="note-area" placeholder="Add a note...">${noteText}</textarea>
+  `;
+
+  // Events
+  const deleteBtn = div.querySelector('.delete-btn');
+  deleteBtn.onclick = (e) => {
+    e.stopPropagation();
+    deleteHighlight(highlight.id, highlight.sourceUrl || state.currentUrl);
+  };
+
+  const locateBtn = div.querySelector('.locate-btn');
+  locateBtn.onclick = (e) => {
+    e.stopPropagation();
+    if (state.view === 'all' && highlight.sourceUrl && highlight.sourceUrl !== state.currentUrl) {
+      chrome.runtime.sendMessage({
+        type: 'OPEN_AND_FOCUS_HIGHLIGHT',
+        url: highlight.sourceUrl,
+        id: highlight.id
+      });
+    } else {
+      scrollToHighlight(highlight.id);
     }
-    setActiveChip(color);
-  });
-});
+  };
 
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', init);
-} else {
-  init();
+  const noteArea = div.querySelector('.note-area');
+  noteArea.onclick = (e) => e.stopPropagation();
+  noteArea.onchange = (e) => updateNote(highlight.id, e.target.value, highlight.sourceUrl || state.currentUrl);
+
+  // Click card to scroll (fallback)
+  div.onclick = () => {
+    if (state.view === 'all' && highlight.sourceUrl && highlight.sourceUrl !== state.currentUrl) {
+      chrome.runtime.sendMessage({
+        type: 'OPEN_AND_FOCUS_HIGHLIGHT',
+        url: highlight.sourceUrl,
+        id: highlight.id
+      });
+    } else {
+      scrollToHighlight(highlight.id);
+    }
+  };
+
+  return div;
 }
+
+async function deleteHighlight(id, url) {
+  await chrome.runtime.sendMessage({
+    type: 'DELETE_HIGHLIGHT',
+    url: url,
+    id
+  });
+
+  // Update local state
+  state.highlights = state.highlights.filter(h => h.id !== id);
+  render();
+
+  // Notify content script to remove from DOM
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab) {
+    try {
+      await chrome.tabs.sendMessage(tab.id, { type: 'REMOVE_HIGHLIGHT', id });
+    } catch (e) {
+      console.log('Content script not ready or not available on this page');
+    }
+  }
+}
+
+async function updateNote(id, note, url) {
+  const highlight = state.highlights.find(h => h.id === id);
+  if (highlight) {
+    highlight.note = note;
+    await chrome.runtime.sendMessage({
+      type: 'UPDATE_HIGHLIGHT',
+      url: url,
+      highlight
+    });
+  }
+}
+
+async function clearAll() {
+  if (!confirm('Are you sure you want to clear all highlights on this page?')) return;
+
+  await chrome.runtime.sendMessage({
+    type: 'CLEAR_HIGHLIGHTS',
+    url: state.currentUrl
+  });
+
+  state.highlights = [];
+  render();
+
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab) {
+    try {
+      await chrome.tabs.sendMessage(tab.id, { type: 'CLEAR_PAGE_HIGHLIGHTS' });
+    } catch (e) {
+      console.log('Content script not ready');
+    }
+  }
+}
+
+async function scrollToHighlight(id) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab) {
+    try {
+      await chrome.tabs.sendMessage(tab.id, { type: 'FOCUS_HIGHLIGHT', id });
+    } catch (e) {
+      console.log('Content script not ready');
+      // Fallback: maybe the content script isn't loaded.
+      // We could try injecting it, but for now just logging is safer.
+    }
+  }
+}
+
+document.addEventListener('DOMContentLoaded', init);

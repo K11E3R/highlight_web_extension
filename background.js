@@ -40,9 +40,11 @@ async function updateHighlight(url, updatedHighlight) {
   const cleanUrl = normalizeUrl(url);
   const list = map[cleanUrl] || [];
   const idx = list.findIndex((item) => item.id === updatedHighlight.id);
+
   if (idx === -1) {
     throw new Error('Highlight not found');
   }
+
   list[idx] = { ...list[idx], ...updatedHighlight };
   map[cleanUrl] = list;
   await saveHighlightMap(map);
@@ -54,11 +56,13 @@ async function deleteHighlight(url, id) {
   const cleanUrl = normalizeUrl(url);
   const list = map[cleanUrl] || [];
   const filtered = list.filter((item) => item.id !== id);
+
   if (filtered.length) {
     map[cleanUrl] = filtered;
   } else {
     delete map[cleanUrl];
   }
+
   await saveHighlightMap(map);
   return filtered;
 }
@@ -66,15 +70,218 @@ async function deleteHighlight(url, id) {
 async function clearHighlights(url) {
   const map = await getHighlightMap();
   const cleanUrl = normalizeUrl(url);
+
   if (map[cleanUrl]) {
     delete map[cleanUrl];
     await saveHighlightMap(map);
   }
+
   return [];
 }
 
+async function getAllHighlights() {
+  const map = await getHighlightMap();
+  const allHighlights = [];
+
+  for (const [url, highlights] of Object.entries(map)) {
+    if (Array.isArray(highlights)) {
+      highlights.forEach(highlight => {
+        allHighlights.push({
+          ...highlight,
+          sourceUrl: url
+        });
+      });
+    }
+  }
+
+  return allHighlights;
+}
+
+// background.js
+const pendingFocus = {}; // Maps tabId -> highlightId
+
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.contextMenus.create({
+    id: 'persistentHighlighter.highlight',
+    title: 'Highlight selection',
+    contexts: ['selection'],
+  });
+  
+  chrome.contextMenus.create({
+    id: 'persistentHighlighter.unhighlight',
+    title: 'Unhighlight selection',
+    contexts: ['selection'],
+  });
+});
+
+function isRestrictedUrl(url) {
+  if (!url) {
+    return { restricted: true, reason: 'No URL provided' };
+  }
+
+  try {
+    const parsed = new URL(url);
+    const protocol = parsed.protocol;
+    const hostname = parsed.hostname;
+
+    if (protocol === 'chrome:' || protocol === 'chrome-extension:') {
+      return {
+        restricted: true,
+        reason: 'Chrome internal pages are not supported',
+        code: 'CHROME_INTERNAL'
+      };
+    }
+
+    if (hostname === 'chrome.google.com' || hostname.includes('chromewebstore.google.com')) {
+      return {
+        restricted: true,
+        reason: 'Chrome Web Store pages are not supported',
+        code: 'CHROME_STORE'
+      };
+    }
+
+    if (protocol === 'about:') {
+      return {
+        restricted: true,
+        reason: 'about: pages are not supported',
+        code: 'ABOUT_PAGE'
+      };
+    }
+
+    if (url.includes('.pdf') || parsed.pathname.endsWith('.pdf') || parsed.searchParams.get('format') === 'pdf') {
+      return {
+        restricted: true,
+        reason: 'PDF files are not supported. Use HTML version if available.',
+        code: 'PDF_FILE',
+        suggestion: 'Try the HTML version (e.g., arxiv.org/abs/ instead of arxiv.org/pdf/)'
+      };
+    }
+
+    return { restricted: false };
+  } catch (error) {
+    return {
+      restricted: true,
+      reason: `Invalid URL: ${error.message}`,
+      code: 'INVALID_URL'
+    };
+  }
+}
+
+async function ensureContentScript(tabId, url) {
+  const restriction = isRestrictedUrl(url);
+
+  if (restriction.restricted) {
+    return {
+      success: false,
+      error: restriction.reason,
+      code: restriction.code,
+      suggestion: restriction.suggestion
+    };
+  }
+
+  try {
+    return new Promise((resolve) => {
+      chrome.tabs.sendMessage(tabId, { type: 'PING' }, (response) => {
+        if (chrome.runtime.lastError) {
+          chrome.scripting.executeScript({
+            target: { tabId },
+            files: ['contentScript.js']
+          }, (results) => {
+            if (chrome.runtime.lastError) {
+              resolve({
+                success: false,
+                error: `Failed to inject: ${chrome.runtime.lastError.message}`,
+                code: 'INJECTION_FAILED',
+                details: chrome.runtime.lastError.message
+              });
+            } else {
+              resolve({ success: true, injected: true });
+            }
+          });
+        } else {
+          resolve({ success: true, injected: false });
+        }
+      });
+    });
+  } catch (error) {
+    return {
+      success: false,
+      error: `Error: ${error.message}`,
+      code: 'INJECTION_ERROR',
+      details: error.message
+    };
+  }
+}
+
+chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+  if (!tab || !tab.id) return;
+  
+  const isHighlight = info.menuItemId === 'persistentHighlighter.highlight';
+  const isUnhighlight = info.menuItemId === 'persistentHighlighter.unhighlight';
+  
+  if (!isHighlight && !isUnhighlight) return;
+  
+  const scriptStatus = await ensureContentScript(tab.id, tab.url);
+
+  if (!scriptStatus.success) {
+    // Use debug level for expected restrictions (known limitations)
+    const isExpectedRestriction = ['CHROME_INTERNAL', 'CHROME_STORE', 'ABOUT_PAGE', 'PDF_FILE'].includes(scriptStatus.code);
+
+    if (isExpectedRestriction) {
+      // Silently handle expected restrictions - these are known limitations
+      return;
+    } else {
+      // Only log actual errors (unexpected failures)
+      console.warn('Persistent Highlighter:', scriptStatus.error);
+      if (scriptStatus.code) {
+        console.warn('Code:', scriptStatus.code);
+      }
+    }
+    return;
+  }
+
+  if (scriptStatus.injected) {
+    await new Promise(resolve => setTimeout(resolve, 100));
+  }
+
+  const messageType = isHighlight ? 'CREATE_HIGHLIGHT_AT_SELECTION' : 'REMOVE_HIGHLIGHT_AT_SELECTION';
+  
+  chrome.tabs.sendMessage(tab.id, { type: messageType }, (response) => {
+    if (chrome.runtime.lastError) {
+      const restriction = isRestrictedUrl(tab.url);
+      // Only log if it's not an expected restriction
+      if (!restriction.restricted) {
+        console.warn('Persistent Highlighter: Failed to communicate with content script:', chrome.runtime.lastError.message);
+      }
+      return;
+    }
+
+    if (!response?.success) {
+      console.warn(`Persistent Highlighter: Failed to ${isHighlight ? 'create' : 'remove'} highlight`);
+    }
+  });
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   const handler = async () => {
+    if (message.type === 'CHECK_AND_INJECT') {
+      const tabId = message.tabId || (sender.tab ? sender.tab.id : null);
+      const url = message.url || (sender.tab ? sender.tab.url : null);
+
+      if (!tabId || !url) {
+        sendResponse({
+          success: false,
+          error: 'No tab ID or URL provided',
+          code: 'MISSING_PARAMS'
+        });
+        return;
+      }
+
+      const result = await ensureContentScript(tabId, url);
+      sendResponse(result);
+      return;
+    }
+
     switch (message.type) {
       case 'GET_HIGHLIGHTS': {
         const highlights = await getHighlightsForUrl(message.url);
@@ -105,6 +312,32 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true });
         break;
       }
+      case 'GET_ALL_HIGHLIGHTS': {
+        const allHighlights = await getAllHighlights();
+        sendResponse({ success: true, highlights: allHighlights });
+        break;
+      }
+      case 'OPEN_AND_FOCUS_HIGHLIGHT': {
+        // Store the pending focus request
+        chrome.tabs.create({ url: message.url }, (tab) => {
+          pendingFocus[tab.id] = message.id;
+        });
+        sendResponse({ success: true });
+        break;
+      }
+      case 'CONTENT_SCRIPT_READY': {
+        // Check if there's a pending focus for this tab
+        const tabId = sender.tab.id;
+        if (pendingFocus[tabId]) {
+          const highlightId = pendingFocus[tabId];
+          delete pendingFocus[tabId]; // Clear the pending task
+
+          // Send the focus command now that we know the script is ready
+          chrome.tabs.sendMessage(tabId, { type: 'FOCUS_HIGHLIGHT', id: highlightId });
+        }
+        sendResponse({ success: true });
+        break;
+      }
       default:
         sendResponse({ success: false, error: 'Unknown message type' });
     }
@@ -112,4 +345,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   handler();
   return true;
+});
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  // Support for SPAs: if URL changes without a reload
+  if (changeInfo.url) {
+    chrome.tabs.sendMessage(tabId, { type: 'UPDATE_HIGHLIGHTS_ON_NAV' }, () => {
+      // Ignore errors if content script isn't ready or doesn't exist
+      if (chrome.runtime.lastError) return;
+    });
+  }
 });
