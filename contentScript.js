@@ -1,3 +1,10 @@
+(() => {
+  const globalScope = typeof window !== 'undefined' ? window : self;
+  if (globalScope.__persistentHighlighterInjected) {
+    return;
+  }
+  globalScope.__persistentHighlighterInjected = true;
+
 const HIGHLIGHT_CLASS = 'persistent-highlighter-span';
 const HIGHLIGHT_PULSE_CLASS = 'persistent-highlighter-pulse';
 const TOOLTIP_ID = 'persistent-highlighter-tooltip';
@@ -748,7 +755,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     };
 
     if (attemptFocus()) {
-    sendResponse({ success: true });
+      sendResponse({ success: true });
     } else {
       // If we started retrying, we can't sendResponse asynchronously easily in all cases
       // without returning true from the listener. 
@@ -842,3 +849,5 @@ if (document.readyState === 'loading') {
 } else {
   init();
 }
+
+})();

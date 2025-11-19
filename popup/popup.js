@@ -1,8 +1,4 @@
-// Utilities inlined for simplicity
-
-// We'll need to create utils.js or just inline it since it's small
-// For simplicity, I'll inline the logic or use standard chrome APIs directly here.
-
+// State management
 const state = {
   highlights: [],
   currentUrl: '',
@@ -21,6 +17,72 @@ const elements = {
   viewAllBtn: document.getElementById('viewAllBtn')
 };
 
+// Utility functions for messaging
+const CONNECTION_ERROR_FRAGMENT = 'Could not establish connection';
+
+const sendMessageToTab = (tabId, message) =>
+  new Promise((resolve) => {
+    if (!tabId) {
+      resolve({ success: false, error: 'Missing active tab' });
+      return;
+    }
+    chrome.tabs.sendMessage(tabId, message, (response) => {
+      if (chrome.runtime.lastError) {
+        resolve({ success: false, error: chrome.runtime.lastError.message });
+        return;
+      }
+      resolve(response);
+    });
+  });
+
+async function ensureContentScript(tabId) {
+  if (!tabId || !chrome?.scripting) {
+    return { success: false, error: 'Unable to load highlighter on this page.' };
+  }
+  try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['contentScript.js'],
+    });
+    return { success: true };
+  } catch (error) {
+    return {
+      success: false,
+      error: error?.message || 'Unable to inject the highlighter script.',
+    };
+  }
+}
+
+async function tabMessage(tabId, message) {
+  const initialResponse = await sendMessageToTab(tabId, message);
+  if (
+    initialResponse?.success ||
+    !initialResponse?.error ||
+    !initialResponse.error.includes(CONNECTION_ERROR_FRAGMENT)
+  ) {
+    return initialResponse;
+  }
+
+  const injection = await ensureContentScript(tabId);
+  if (!injection.success) {
+    return {
+      success: false,
+      error: injection.error || initialResponse.error,
+    };
+  }
+
+  return sendMessageToTab(tabId, message);
+}
+
+// Helper functions
+function escapeHtml(text) {
+  if (!text) return '';
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+// Main initialization
 async function init() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
@@ -28,28 +90,43 @@ async function init() {
 
   // Check for PDF
   if (tab.url.endsWith('.pdf') || tab.title.endsWith('.pdf')) {
-    elements.pdfWarning.classList.remove('hidden');
+    if (elements.pdfWarning) {
+      elements.pdfWarning.classList.remove('hidden');
+    }
   }
 
   state.currentUrl = tab.url;
-  loadHighlights();
+  await loadHighlights();
 
   // Listeners
-  elements.refreshBtn.addEventListener('click', loadHighlights);
-  elements.clearBtn.addEventListener('click', clearAll);
-
-  elements.viewPageBtn.addEventListener('click', () => switchView('page'));
-  elements.viewAllBtn.addEventListener('click', () => switchView('all'));
+  if (elements.refreshBtn) {
+    elements.refreshBtn.addEventListener('click', () => loadHighlights());
+  }
+  if (elements.clearBtn) {
+    elements.clearBtn.addEventListener('click', clearAll);
+  }
+  if (elements.viewPageBtn) {
+    elements.viewPageBtn.addEventListener('click', () => switchView('page'));
+  }
+  if (elements.viewAllBtn) {
+    elements.viewAllBtn.addEventListener('click', () => switchView('all'));
+  }
 }
 
 function switchView(view) {
   state.view = view;
-  elements.viewPageBtn.classList.toggle('active', view === 'page');
-  elements.viewAllBtn.classList.toggle('active', view === 'all');
+  if (elements.viewPageBtn) {
+    elements.viewPageBtn.classList.toggle('active', view === 'page');
+  }
+  if (elements.viewAllBtn) {
+    elements.viewAllBtn.classList.toggle('active', view === 'all');
+  }
   loadHighlights();
 }
 
 async function loadHighlights() {
+  if (!elements.refreshBtn) return;
+  
   // Spin icon
   elements.refreshBtn.classList.add('spinning');
 
@@ -73,39 +150,51 @@ async function loadHighlights() {
   } catch (e) {
     console.error('Failed to load highlights', e);
   } finally {
-    setTimeout(() => elements.refreshBtn.classList.remove('spinning'), 500);
+    setTimeout(() => {
+      if (elements.refreshBtn) {
+        elements.refreshBtn.classList.remove('spinning');
+      }
+    }, 500);
   }
 }
 
 function render() {
+  if (!elements.list) return;
+  
   // Clear list (except empty state which we toggle)
   Array.from(elements.list.children).forEach(child => {
     if (child.id !== 'emptyState') child.remove();
   });
 
   const count = state.highlights.length;
-  elements.countBadge.textContent = count;
-  elements.clearBtn.disabled = count === 0 || state.view === 'all'; // Disable clear all in global view for safety
+  
+  if (elements.countBadge) {
+    elements.countBadge.textContent = count;
+  }
+  
+  if (elements.clearBtn) {
+    elements.clearBtn.disabled = count === 0 || state.view === 'all'; // Disable clear all in global view for safety
+  }
 
   if (count === 0) {
-    elements.emptyState.style.display = 'block';
-    elements.emptyState.querySelector('h3').textContent = state.view === 'page' ? 'No highlights yet' : 'No saved highlights';
+    if (elements.emptyState) {
+      elements.emptyState.style.display = 'block';
+      const heading = elements.emptyState.querySelector('h3');
+      if (heading) {
+        heading.textContent = state.view === 'page' ? 'No highlights yet' : 'No saved highlights';
+      }
+    }
     return;
   }
 
-  elements.emptyState.style.display = 'none';
+  if (elements.emptyState) {
+    elements.emptyState.style.display = 'none';
+  }
 
   state.highlights.forEach(h => {
     const card = createCard(h);
     elements.list.appendChild(card);
   });
-}
-
-function escapeHtml(text) {
-  if (!text) return '';
-  const div = document.createElement('div');
-  div.textContent = text;
-  return div.innerHTML;
 }
 
 function createCard(highlight) {
@@ -241,11 +330,9 @@ async function scrollToHighlight(id) {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
   if (tab) {
     try {
-      await chrome.tabs.sendMessage(tab.id, { type: 'FOCUS_HIGHLIGHT', id });
+      await tabMessage(tab.id, { type: 'FOCUS_HIGHLIGHT', id });
     } catch (e) {
       console.log('Content script not ready');
-      // Fallback: maybe the content script isn't loaded.
-      // We could try injecting it, but for now just logging is safer.
     }
   }
 }
