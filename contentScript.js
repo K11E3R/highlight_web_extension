@@ -18,7 +18,7 @@ function injectStyles() {
       padding: 1px 2px;
       box-decoration-break: clone;
       -webkit-box-decoration-break: clone;
-      color: inherit;
+      color: var(--highlight-text-color, inherit);
     }
     .${HIGHLIGHT_CLASS}:hover {
       filter: brightness(0.95);
@@ -92,6 +92,35 @@ function injectStyles() {
 }
 
 // --- DOM Helpers ---
+
+function getContrastTextColor(bgColor) {
+  // Convert hex to RGB
+  let r, g, b;
+  
+  if (bgColor.startsWith('#')) {
+    const hex = bgColor.replace('#', '');
+    r = parseInt(hex.slice(0, 2), 16);
+    g = parseInt(hex.slice(2, 4), 16);
+    b = parseInt(hex.slice(4, 6), 16);
+  } else if (bgColor.startsWith('rgb')) {
+    const matches = bgColor.match(/\d+/g);
+    if (matches && matches.length >= 3) {
+      r = parseInt(matches[0]);
+      g = parseInt(matches[1]);
+      b = parseInt(matches[2]);
+    } else {
+      return '#000000'; // Default to black
+    }
+  } else {
+    return '#000000'; // Default to black
+  }
+  
+  // Calculate relative luminance (WCAG formula)
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  
+  // Return black for light backgrounds, white for dark backgrounds
+  return luminance > 0.5 ? '#000000' : '#FFFFFF';
+}
 
 function getXPathForNode(node) {
   if (node === document.body) return '/html/body';
@@ -246,6 +275,11 @@ function highlightRange(range, id, color) {
       span.dataset.highlightId = id;
       span.style.backgroundColor = color;
       span.style.setProperty('--highlight-color', color);
+      
+      // Set text color for contrast
+      const textColor = getContrastTextColor(color);
+      span.style.setProperty('--highlight-text-color', textColor);
+      
       span.appendChild(contents);
       clonedRange.insertNode(span);
       spans.push(span);
@@ -273,6 +307,7 @@ function highlightRange(range, id, color) {
     span.dataset.highlightId = id;
     // Use color-mix for transparency, fallback to rgba if needed
     span.style.setProperty('--highlight-color', color);
+    
     // Apply semi-transparent background
     if (color.startsWith('#')) {
       // Convert hex to rgba with 40% opacity
@@ -283,6 +318,10 @@ function highlightRange(range, id, color) {
     } else {
       span.style.backgroundColor = color;
     }
+    
+    // Set text color for contrast
+    const textColor = getContrastTextColor(color);
+    span.style.setProperty('--highlight-text-color', textColor);
 
     // Split text node precisely at the selection boundaries
     let targetNode = node;
@@ -408,11 +447,17 @@ function createTooltip() {
   el.querySelector('#ph-btn-blue').onclick = () => createHighlight('#64B5F6');
   el.querySelector('#ph-btn-orange').onclick = () => createHighlight('#FFB74D');
   el.querySelector('#ph-btn-purple').onclick = () => createHighlight('#BA68C8');
-  el.querySelector('#ph-btn-delete').onclick = () => {
+  el.querySelector('#ph-btn-delete').onclick = async () => {
     const selection = window.getSelection();
     if (!selection.isCollapsed) {
-      // If selecting text, maybe we want to delete overlapping highlights?
-      // For now, let's just hide tooltip
+      const highlightIds = getHighlightsInSelection(selection);
+      if (highlightIds.length > 0) {
+        await removeHighlightsByIds(highlightIds);
+        showToast(`Removed ${highlightIds.length} highlight${highlightIds.length > 1 ? 's' : ''}`, 'success');
+      } else {
+        showToast('No highlights in selection', 'info');
+      }
+      selection.removeAllRanges();
       hideTooltip();
     }
   };
