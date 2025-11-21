@@ -1,0 +1,59 @@
+{
+  "version": "1.0",
+  "exportDate": "2025-11-21T17:30:00.000Z",
+  "source": "page",
+  "url": "https://example.com",
+  "categories": ["all"],
+  "count": 3,
+  "highlights": [
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440001",
+      "text": "This domain is for use in illustrative examples in documents.",
+      "note": "Important information about example.com",
+      "color": "#FFEB3B",
+      "category": "Documentation",
+      "url": "https://example.com",
+      "title": "Example Domain",
+      "createdAt": 1700000000000,
+      "range": {
+        "startXPath": "/html/body/div/p[1]/text()[1]",
+        "startOffset": 0,
+        "endXPath": "/html/body/div/p[1]/text()[1]",
+        "endOffset": 60
+      }
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440002",
+      "text": "More information",
+      "note": "Check this for details",
+      "color": "#81C784",
+      "category": "Important",
+      "url": "https://example.com",
+      "title": "Example Domain",
+      "createdAt": 1700000100000,
+      "range": {
+        "startXPath": "/html/body/div/p[2]/a/text()[1]",
+        "startOffset": 0,
+        "endXPath": "/html/body/div/p[2]/a/text()[1]",
+        "endOffset": 16
+      }
+    },
+    {
+      "id": "550e8400-e29b-41d4-a716-446655440003",
+      "text": "You may use this domain in literature without prior coordination or asking for permission.",
+      "note": "",
+      "color": "#64B5F6",
+      "category": "uncategorized",
+      "url": "https://example.com",
+      "title": "Example Domain",
+      "createdAt": 1700000200000,
+      "range": {
+        "startXPath": "/html/body/div/p[1]/text()[2]",
+        "startOffset": 0,
+        "endXPath": "/html/body/div/p[1]/text()[2]",
+        "endOffset": 91
+      }
+    }
+  ]
+}
+

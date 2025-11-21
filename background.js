@@ -1,8 +1,54 @@
 const STORAGE_KEY = 'persistentHighlighterEntries';
+const CATEGORIES_KEY = 'persistentHighlighterCategories';
 
 async function getHighlightMap() {
   const stored = await chrome.storage.local.get([STORAGE_KEY]);
   return stored[STORAGE_KEY] || {};
+}
+
+async function getCategories() {
+  const stored = await chrome.storage.local.get([CATEGORIES_KEY]);
+  return stored[CATEGORIES_KEY] || [];
+}
+
+async function saveCategories(categories) {
+  await chrome.storage.local.set({ [CATEGORIES_KEY]: categories });
+}
+
+async function addCategory(category) {
+  const categories = await getCategories();
+  if (!categories.includes(category)) {
+    categories.push(category);
+    await saveCategories(categories);
+  }
+  return categories;
+}
+
+async function deleteCategory(category) {
+  const categories = await getCategories();
+  const filtered = categories.filter(c => c !== category);
+  await saveCategories(filtered);
+  
+  // Update all highlights with this category to "uncategorized"
+  const map = await getHighlightMap();
+  let updated = false;
+  
+  for (const [url, highlights] of Object.entries(map)) {
+    if (Array.isArray(highlights)) {
+      highlights.forEach(h => {
+        if (h.category === category) {
+          h.category = 'uncategorized';
+          updated = true;
+        }
+      });
+    }
+  }
+  
+  if (updated) {
+    await saveHighlightMap(map);
+  }
+  
+  return filtered;
 }
 
 async function saveHighlightMap(map) {
@@ -315,6 +361,108 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       case 'GET_ALL_HIGHLIGHTS': {
         const allHighlights = await getAllHighlights();
         sendResponse({ success: true, highlights: allHighlights });
+        break;
+      }
+      case 'GET_CATEGORIES': {
+        const categories = await getCategories();
+        sendResponse({ success: true, categories });
+        break;
+      }
+      case 'ADD_CATEGORY': {
+        try {
+          const category = message.category;
+          if (!category || typeof category !== 'string') {
+            throw new Error('Invalid category name');
+          }
+          const categories = await addCategory(category.trim());
+          sendResponse({ success: true, categories });
+        } catch (error) {
+          sendResponse({ success: false, error: error.message });
+        }
+        break;
+      }
+      case 'DELETE_CATEGORY': {
+        try {
+          const category = message.category;
+          if (!category) {
+            throw new Error('Category name required');
+          }
+          const categories = await deleteCategory(category);
+          sendResponse({ success: true, categories });
+        } catch (error) {
+          sendResponse({ success: false, error: error.message });
+        }
+        break;
+      }
+      case 'IMPORT_HIGHLIGHTS': {
+        try {
+          const importedHighlights = message.highlights;
+          if (!Array.isArray(importedHighlights)) {
+            throw new Error('Invalid highlights data');
+          }
+
+          // Get current highlights map and categories
+          const map = await getHighlightMap();
+          const categories = await getCategories();
+          const newCategories = new Set(categories);
+          let importCount = 0;
+
+          // Group imported highlights by URL
+          const highlightsByUrl = {};
+          for (const highlight of importedHighlights) {
+            const url = highlight.url || highlight.sourceUrl;
+            if (!url) continue;
+
+            const cleanUrl = normalizeUrl(url);
+            if (!highlightsByUrl[cleanUrl]) {
+              highlightsByUrl[cleanUrl] = [];
+            }
+            highlightsByUrl[cleanUrl].push(highlight);
+            
+            // Collect new categories
+            if (highlight.category && highlight.category !== 'uncategorized') {
+              newCategories.add(highlight.category);
+            }
+          }
+
+          // Merge with existing highlights
+          for (const [url, highlights] of Object.entries(highlightsByUrl)) {
+            const existing = map[url] || [];
+            const existingIds = new Set(existing.map(h => h.id));
+
+            // Add highlights that don't already exist
+            for (const highlight of highlights) {
+              if (!existingIds.has(highlight.id)) {
+                existing.push({
+                  id: highlight.id,
+                  text: highlight.text,
+                  note: highlight.note || '',
+                  color: highlight.color,
+                  category: highlight.category || 'uncategorized',
+                  url: highlight.url || url,
+                  title: highlight.title || '',
+                  createdAt: highlight.createdAt || Date.now(),
+                  range: highlight.range
+                });
+                importCount++;
+              }
+            }
+
+            map[url] = existing;
+          }
+
+          // Save updated map and categories
+          await saveHighlightMap(map);
+          
+          // Save any new categories discovered during import
+          if (newCategories.size > categories.length) {
+            await saveCategories(Array.from(newCategories));
+          }
+
+          sendResponse({ success: true, imported: importCount });
+        } catch (error) {
+          sendResponse({ success: false, error: error.message });
+        }
         break;
       }
       case 'OPEN_AND_FOCUS_HIGHLIGHT': {

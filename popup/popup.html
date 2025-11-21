@@ -42,6 +42,21 @@
     <!-- Main Content -->
     <main class="main-content">
 
+      <!-- Category Filter Section -->
+      <div class="category-section">
+        <div class="category-header">
+          <select id="categoryFilter" class="category-select" title="Filter by category" aria-label="Filter by category">
+            <option value="all">All Categories</option>
+            <option value="uncategorized">Uncategorized</option>
+          </select>
+          <button id="manageCategoriesBtn" class="icon-btn-small" title="Manage Categories" aria-label="Manage Categories">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 5v14M5 12h14"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
       <!-- PDF Warning (Hidden by default) -->
       <div id="pdfWarning" class="warning-banner hidden">
         <div class="warning-icon">⚠️</div>
@@ -76,8 +91,100 @@
       <div class="stats">
         <span id="countBadge" class="badge">0</span> highlights
       </div>
-      <button id="clearAllBtn" class="btn-text text-danger" disabled>Clear Page</button>
+      <div class="footer-actions">
+        <button id="exportBtn" class="btn-text" title="Export highlights">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+          </svg>
+          Export
+        </button>
+        <button id="importBtn" class="btn-text" title="Import highlights">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M17 8l-5-5-5 5M12 3v12"/>
+          </svg>
+          Import
+        </button>
+        <button id="clearAllBtn" class="btn-text text-danger" disabled>Clear Page</button>
+      </div>
+      <input type="file" id="importFileInput" accept=".json" class="file-input-hidden" aria-label="Import file input">
     </footer>
+  </div>
+
+  <!-- Category Management Modal -->
+  <div id="categoryModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Manage Categories</h2>
+        <button id="closeCategoryModal" class="icon-btn-small" title="Close" aria-label="Close modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="category-input-group">
+          <input type="text" id="newCategoryInput" placeholder="New category name..." maxlength="30">
+          <button id="addCategoryBtn" class="btn-primary">Add</button>
+        </div>
+        <div id="categoryList" class="category-list">
+          <!-- Categories will be rendered here -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Export Options Modal -->
+  <div id="exportModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Export Highlights</h2>
+        <button id="closeExportModal" class="icon-btn-small" title="Close" aria-label="Close modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-description">Select categories to export:</p>
+        <div id="exportCategoryList" class="export-category-list">
+          <!-- Export checkboxes will be rendered here -->
+        </div>
+        <div class="modal-actions">
+          <button id="cancelExportBtn" class="btn-secondary">Cancel</button>
+          <button id="confirmExportBtn" class="btn-primary">Export Selected</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Import Options Modal -->
+  <div id="importModal" class="modal hidden">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Import Highlights</h2>
+        <button id="closeImportModal" class="icon-btn-small" title="Close" aria-label="Close modal">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M18 6L6 18M6 6l12 12"/>
+          </svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p class="modal-description">Assign imported highlights to category:</p>
+        <select id="importCategorySelect" class="category-select" title="Select import category" aria-label="Select import category">
+          <option value="">Keep original categories</option>
+          <option value="uncategorized">Uncategorized</option>
+        </select>
+        <div class="import-info">
+          <p><strong>File:</strong> <span id="importFileName"></span></p>
+          <p><strong>Highlights:</strong> <span id="importHighlightCount"></span></p>
+          <p><strong>Export Date:</strong> <span id="importExportDate"></span></p>
+        </div>
+        <div class="modal-actions">
+          <button id="cancelImportBtn" class="btn-secondary">Cancel</button>
+          <button id="confirmImportBtn" class="btn-primary">Import</button>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="popup.js" type="module"></script>
