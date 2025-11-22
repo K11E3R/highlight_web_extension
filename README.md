@@ -7,11 +7,9 @@ A **modern, minimal Chrome extension** that lets you highlight text, organize wi
 ### Core Features
 - 🎨 **Clean Highlighting** - Select text and highlight with custom colors
 - 📝 **Smart Notes** - Add contextual notes to your highlights
-- 📁 **Category Organization** - Quick filter with horizontal scrollable chips
+- 📁 **Horizontal Categories** - Quick filter with scrollable chips
 - 🔍 **One-Tap Filtering** - See all categories at a glance
 - 💾 **Auto-save** - Highlights persist across sessions
-- 📤 **Selective Export** - Choose specific categories to export
-- 📥 **Smart Import** - Assign categories during import
 
 ### Modern Design
 - 🎯 **Minimal UI** - Clean, no clutter, content-first
@@ -20,12 +18,13 @@ A **modern, minimal Chrome extension** that lets you highlight text, organize wi
 - 📱 **Compact Cards** - See more highlights at once
 - 🌙 **Dark Mode** - Automatic dark theme support
 - 💫 **Smooth Interactions** - Hover states, fade-ins, transitions
+- 🎀 **Ribbon Mode** - Beautiful decorative ribbons (toggleable!)
 
 ## Installation
 
 1. **Clone this repository**
    ```bash
-   git clone https://github.com/K11E3R/highlight_web_extension
+   git clone https://github.com/K11E3R/highlight_web_extension.git
    cd highlight_web_extension
    ```
 
@@ -52,20 +51,25 @@ A **modern, minimal Chrome extension** that lets you highlight text, organize wi
 - Choose a color from the floating toolbar
 - Or right-click and select "Highlight selection"
 
-### Categories
+### Categories (NEW!)
 1. **Create categories**: Click + button → Enter name → Add
 2. **Assign to highlights**: Use dropdown in each highlight card
 3. **Filter**: Select category from top dropdown
 4. **Manage**: Click + button to open category manager
 
-### Export/Import
+### Advanced Features
+- 📤 **Selective Export** - Choose specific categories to export
+- 📥 **Smart Import** - Assign categories during import
+- 🎀 **Ribbon Decorations** - Toggle beautiful corner/banner ribbons
+- ✨ **Custom Cursor** - Special cursor when ribbon mode is active
+- 🌟 **4 Ribbon Styles** - Automatic style rotation
 **Export:**
-- Click Export button in footer
+- Click Export button
 - Select which categories to export (checkboxes)
-- Download JSON file with your highlights
+- Download JSON file
 
 **Import:**
-- Click Import button in footer
+- Click Import button
 - Select JSON file
 - Choose category assignment or keep originals
 - Highlights merge with existing ones
@@ -78,24 +82,23 @@ A **modern, minimal Chrome extension** that lets you highlight text, organize wi
 - Subtle, purposeful effects
 - Fast and responsive
 
-**Key Design Elements:**
+**Key Features:**
 - **Horizontal Category Chips** - All visible, one-tap selection
 - **Compact Cards** - See more content at once
 - **Fade-in Actions** - Clean until you need them
 - **Light Shadows** - Just enough depth
 - **Coral Accent** - Warm, professional, friendly
 
+See `NEW_MINIMAL_DESIGN.md` for complete design documentation.
+
 ---
 
 ## 📚 Documentation
 
+- **[Ribbon Feature Guide](./RIBBON_FEATURE.md)** - Complete ribbon mode documentation
 - **[Architecture](./architecture.md)** - Technical architecture and data flow
 
 ---
-
-## 📄 Export Format
-
-Highlights are exported as JSON with this structure:
 
 ```json
 {
@@ -118,7 +121,7 @@ Highlights are exported as JSON with this structure:
 }
 ```
 
-## 💡 Use Cases
+## Use Cases
 
 - **Research**: Organize highlights by project or topic
 - **Work**: Separate work and personal highlights
@@ -126,7 +129,7 @@ Highlights are exported as JSON with this structure:
 - **Collaboration**: Export specific categories to share with team
 - **Backup**: Export all highlights for safekeeping
 
-## 🛠️ Development
+## Development
 
 ```bash
 npm install              # Generate icons
