@@ -5,6 +5,7 @@ const state = {
   view: 'page', // 'page' or 'all'
   categories: [],
   selectedCategory: 'all', // Filter by category
+  selectedColor: 'all', // Filter by color
   importFileData: null, // Temporary storage for import data
   ribbonMode: false // Ribbon decorations active
 };
@@ -193,6 +194,10 @@ async function init() {
   if (elements.ribbonToggle) {
     elements.ribbonToggle.addEventListener('click', toggleRibbonMode);
   }
+  // Color filter chips
+  setupColorFilters();
+  // Blur text animation for title
+  setupBlurTextAnimation();
   // Close modals on background click
   if (elements.categoryModal) {
     elements.categoryModal.addEventListener('click', (e) => {
@@ -272,6 +277,11 @@ function render() {
     } else {
       filteredHighlights = state.highlights.filter(h => h.category === state.selectedCategory);
     }
+  }
+  
+  // Filter by color
+  if (state.selectedColor !== 'all') {
+    filteredHighlights = filteredHighlights.filter(h => h.color === state.selectedColor);
   }
 
   const count = filteredHighlights.length;
@@ -977,6 +987,7 @@ if (!document.getElementById('notification-styles')) {
 
 // Ribbon Mode Functions
 let ribbonIndicatorTimeout = null;
+let ribbonTrail = null;
 
 async function loadRibbonMode() {
   const result = await chrome.storage.local.get('ribbonMode');
@@ -988,6 +999,8 @@ async function loadRibbonMode() {
     }
     // Apply ribbons to cards after render
     setTimeout(() => addRibbonsToCards(), 100);
+    // Start ribbon trail effect
+    startRibbonTrail();
   }
 }
 
@@ -1022,6 +1035,9 @@ function toggleRibbonMode() {
     
     // Add ribbons to all cards
     addRibbonsToCards();
+    
+    // Start ribbon trail effect
+    startRibbonTrail();
   } else {
     document.body.classList.remove('ribbon-mode');
     elements.ribbonToggle.classList.remove('active');
@@ -1037,6 +1053,9 @@ function toggleRibbonMode() {
     
     // Remove ribbons from all cards
     removeRibbonsFromCards();
+    
+    // Stop ribbon trail effect
+    stopRibbonTrail();
   }
 }
 
@@ -1100,6 +1119,105 @@ function removeRibbonsFromCards() {
   cards.forEach(card => {
     card.classList.remove('has-ribbon');
     card.querySelectorAll('.ribbon-corner, .ribbon-banner, .ribbon-wave, .ribbon-shimmer, .ribbon-fold').forEach(el => el.remove());
+  });
+}
+
+// Ribbon Trail Effect Functions
+function startRibbonTrail() {
+  if (ribbonTrail) {
+    ribbonTrail.destroy();
+  }
+  
+  // Initialize ribbon trail with custom colors
+  ribbonTrail = new window.RibbonTrail({
+    colors: ['#ffffff'],
+    baseThickness: 25,
+    maxAge: 400,
+    pointCount: 40,
+    speedMultiplier: 0.5,
+    baseSpring: 0.03,
+    baseFriction: 0.88
+  });
+  
+  // Initialize on body
+  ribbonTrail.init(document.body);
+  
+  // Track mouse movement
+  document.addEventListener('mousemove', handleRibbonMouseMove);
+}
+
+function handleRibbonMouseMove(e) {
+  if (ribbonTrail) {
+    ribbonTrail.updateMouse(e.clientX, e.clientY);
+  }
+}
+
+function stopRibbonTrail() {
+  if (ribbonTrail) {
+    ribbonTrail.destroy();
+    ribbonTrail = null;
+  }
+  document.removeEventListener('mousemove', handleRibbonMouseMove);
+}
+
+// Color Filter Functions
+function setupColorFilters() {
+  const colorChips = document.querySelectorAll('.color-chip, .color-chip-all');
+  colorChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const color = chip.getAttribute('data-color');
+      state.selectedColor = color;
+      
+      // Update active state with smooth animation
+      colorChips.forEach(c => {
+        c.classList.remove('active');
+      });
+      chip.classList.add('active');
+      
+      // Re-render with filter
+      render();
+    });
+  });
+}
+
+// Blur Text Animation for Title
+function setupBlurTextAnimation() {
+  const title = document.getElementById('appTitle');
+  if (!title) return;
+  
+  let isAnimating = false;
+  
+  title.addEventListener('click', () => {
+    if (isAnimating) return;
+    
+    isAnimating = true;
+    const text = title.getAttribute('data-text') || title.textContent;
+    const words = text.split(' ');
+    
+    // Clear current content
+    title.innerHTML = '';
+    title.classList.add('animating');
+    
+    // Create word spans
+    words.forEach((word, index) => {
+      const wordSpan = document.createElement('span');
+      wordSpan.className = 'word';
+      wordSpan.textContent = word;
+      title.appendChild(wordSpan);
+      
+      // Trigger animation with delay
+      setTimeout(() => {
+        wordSpan.classList.add('blur-animate');
+      }, index * 150); // 150ms delay between words
+    });
+    
+    // Reset after animation completes
+    const totalDuration = words.length * 150 + 800; // delay + animation duration
+    setTimeout(() => {
+      title.classList.remove('animating');
+      isAnimating = false;
+      console.log('Blur animation completed! ✨');
+    }, totalDuration);
   });
 }
 

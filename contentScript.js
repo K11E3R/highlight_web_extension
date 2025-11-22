@@ -1,7 +1,7 @@
 const HIGHLIGHT_CLASS = 'persistent-highlighter-span';
 const HIGHLIGHT_PULSE_CLASS = 'persistent-highlighter-pulse';
 const TOOLTIP_ID = 'persistent-highlighter-tooltip';
-const DEFAULT_COLOR = '#FFEB3B'; // Better yellow with opacity
+const DEFAULT_COLOR = '#ffd43b'; // Yellow - matches CSS palette
 
 // --- Styles ---
 
@@ -430,11 +430,11 @@ function createTooltip() {
   const el = document.createElement('div');
   el.id = TOOLTIP_ID;
   el.innerHTML = `
-    <button id="ph-btn-yellow" aria-label="Yellow Highlight"><div class="color-dot" style="background: #FFEB3B"></div></button>
-    <button id="ph-btn-green" aria-label="Green Highlight"><div class="color-dot" style="background: #81C784"></div></button>
-    <button id="ph-btn-blue" aria-label="Blue Highlight"><div class="color-dot" style="background: #64B5F6"></div></button>
-    <button id="ph-btn-orange" aria-label="Orange Highlight"><div class="color-dot" style="background: #FFB74D"></div></button>
-    <button id="ph-btn-purple" aria-label="Purple Highlight"><div class="color-dot" style="background: #BA68C8"></div></button>
+    <button id="ph-btn-yellow" aria-label="Yellow Highlight"><div class="color-dot" style="background: #ffd43b"></div></button>
+    <button id="ph-btn-green" aria-label="Green Highlight"><div class="color-dot" style="background: #51cf66"></div></button>
+    <button id="ph-btn-blue" aria-label="Blue Highlight"><div class="color-dot" style="background: #4dabf7"></div></button>
+    <button id="ph-btn-purple" aria-label="Purple Highlight"><div class="color-dot" style="background: #9775fa"></div></button>
+    <button id="ph-btn-pink" aria-label="Pink Highlight"><div class="color-dot" style="background: #ff6ba7"></div></button>
     <div class="divider"></div>
     <button id="ph-btn-delete" aria-label="Remove"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"/></svg></button>
   `;
@@ -442,11 +442,11 @@ function createTooltip() {
   document.body.appendChild(el);
 
   // Event Listeners
-  el.querySelector('#ph-btn-yellow').onclick = () => createHighlight('#FFEB3B');
-  el.querySelector('#ph-btn-green').onclick = () => createHighlight('#81C784');
-  el.querySelector('#ph-btn-blue').onclick = () => createHighlight('#64B5F6');
-  el.querySelector('#ph-btn-orange').onclick = () => createHighlight('#FFB74D');
-  el.querySelector('#ph-btn-purple').onclick = () => createHighlight('#BA68C8');
+  el.querySelector('#ph-btn-yellow').onclick = () => createHighlight('#ffd43b', 'yellow');
+  el.querySelector('#ph-btn-green').onclick = () => createHighlight('#51cf66', 'green');
+  el.querySelector('#ph-btn-blue').onclick = () => createHighlight('#4dabf7', 'blue');
+  el.querySelector('#ph-btn-purple').onclick = () => createHighlight('#9775fa', 'purple');
+  el.querySelector('#ph-btn-pink').onclick = () => createHighlight('#ff6ba7', 'pink');
   el.querySelector('#ph-btn-delete').onclick = async () => {
     const selection = window.getSelection();
     if (!selection.isCollapsed) {
@@ -571,7 +571,7 @@ function safeRuntimeMessageCallback(message, callback) {
   }
 }
 
-async function createHighlight(color) {
+async function createHighlight(color, colorName = 'yellow') {
   // Proactive check for extension context
   if (!isExtensionContextValid()) {
     showContextInvalidatedToast();
@@ -617,7 +617,8 @@ async function createHighlight(color) {
   // Save to storage
   const highlight = {
     id,
-    color,
+    color: colorName, // Save color name (yellow, green, blue, purple, pink)
+    hexColor: color, // Save hex value for display
     text: selectedText,
     note: '',
     url: window.location.href.split('#')[0],

@@ -22,7 +22,7 @@
               d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
           </svg>
         </div>
-        <h1>Highlighter</h1>
+        <h1 id="appTitle" class="app-title" data-text="Highlighter">Highlighter</h1>
       </div>
       <div class="actions">
         <div class="view-toggle">
@@ -51,6 +51,25 @@
         <div class="category-header" id="categoryChips">
           <!-- Category chips will be injected here by JS -->
           <button class="add-category-btn" id="manageCategoriesBtn" title="Manage Categories" aria-label="Manage Categories">+</button>
+        </div>
+      </div>
+
+      <!-- Color Filter - Interactive -->
+      <div class="color-filter-section">
+        <div class="color-filter-label">Filter by Color</div>
+        <div class="color-filter-container" id="colorFilterContainer">
+          <button class="color-chip color-chip-all active" data-color="all" title="All colors">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"/>
+              <path d="M12 2a10 10 0 0 0 0 20"/>
+            </svg>
+            All
+          </button>
+          <button class="color-chip" data-color="yellow" title="Yellow"></button>
+          <button class="color-chip" data-color="green" title="Green"></button>
+          <button class="color-chip" data-color="blue" title="Blue"></button>
+          <button class="color-chip" data-color="purple" title="Purple"></button>
+          <button class="color-chip" data-color="pink" title="Pink"></button>
         </div>
       </div>
 
@@ -189,6 +208,7 @@
     </div>
   </div>
 
+  <script src="ribbons.js"></script>
   <script src="popup.js" type="module"></script>
 </body>
 
