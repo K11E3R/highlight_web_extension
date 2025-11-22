@@ -65,6 +65,37 @@ body.ribbon-mode * {
   cursor: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="%23ff6b6b" stroke-width="2"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>'), auto !important;
 }
 
+/* Page-wide visual changes when ribbon mode active */
+body.ribbon-mode .header {
+  background: linear-gradient(135deg, 
+    rgba(255, 107, 107, 0.05) 0%, 
+    rgba(255, 107, 107, 0.02) 100%);
+  border-bottom-color: rgba(255, 107, 107, 0.2);
+}
+
+body.ribbon-mode .main-content {
+  background: linear-gradient(to bottom, 
+    rgba(255, 107, 107, 0.02) 0%, 
+    transparent 200px);
+}
+
+body.ribbon-mode .icon-btn.active {
+  background: var(--color-accent);
+  color: white;
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%, 100% { 
+    transform: scale(1); 
+    box-shadow: 0 0 0 0 rgba(255, 107, 107, 0.4);
+  }
+  50% { 
+    transform: scale(1.05); 
+    box-shadow: 0 0 0 6px rgba(255, 107, 107, 0);
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --color-bg: #1a1a1a;
@@ -368,6 +399,24 @@ h1 {
 /* ==========================================
    RIBBON DECORATIONS
    ========================================== */
+
+/* Enhanced card appearance when ribbon mode is active */
+body.ribbon-mode .highlight-card {
+  box-shadow: 
+    0 4px 12px rgba(255, 107, 107, 0.15),
+    0 8px 24px rgba(255, 107, 107, 0.1),
+    var(--shadow-md);
+  border-color: rgba(255, 107, 107, 0.2);
+  animation: ribbonGlow 3s ease-in-out infinite;
+}
+
+body.ribbon-mode .highlight-card:hover {
+  box-shadow: 
+    0 6px 16px rgba(255, 107, 107, 0.2),
+    0 12px 32px rgba(255, 107, 107, 0.15),
+    var(--shadow-lg);
+  transform: translateY(-2px);
+}
 
 .highlight-card.has-ribbon {
   overflow: visible;

@@ -127,6 +127,9 @@ async function init() {
   state.currentUrl = tab.url;
   await loadCategories();
   await loadHighlights();
+  
+  // Load ribbon mode state from storage
+  await loadRibbonMode();
 
   // Listeners
   if (elements.refreshBtn) {
@@ -975,8 +978,24 @@ if (!document.getElementById('notification-styles')) {
 // Ribbon Mode Functions
 let ribbonIndicatorTimeout = null;
 
+async function loadRibbonMode() {
+  const result = await chrome.storage.local.get('ribbonMode');
+  if (result.ribbonMode === true) {
+    state.ribbonMode = true;
+    document.body.classList.add('ribbon-mode');
+    if (elements.ribbonToggle) {
+      elements.ribbonToggle.classList.add('active');
+    }
+    // Apply ribbons to cards after render
+    setTimeout(() => addRibbonsToCards(), 100);
+  }
+}
+
 function toggleRibbonMode() {
   state.ribbonMode = !state.ribbonMode;
+  
+  // Save ribbon mode state to storage
+  chrome.storage.local.set({ ribbonMode: state.ribbonMode });
   
   // Toggle body class for custom cursor
   if (state.ribbonMode) {
