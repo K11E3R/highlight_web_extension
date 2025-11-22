@@ -5,7 +5,8 @@ const state = {
   view: 'page', // 'page' or 'all'
   categories: [],
   selectedCategory: 'all', // Filter by category
-  importFileData: null // Temporary storage for import data
+  importFileData: null, // Temporary storage for import data
+  ribbonMode: false // Ribbon decorations active
 };
 
 // DOM Elements
@@ -40,7 +41,9 @@ const elements = {
   cancelImportBtn: document.getElementById('cancelImportBtn'),
   importFileName: document.getElementById('importFileName'),
   importHighlightCount: document.getElementById('importHighlightCount'),
-  importExportDate: document.getElementById('importExportDate')
+  importExportDate: document.getElementById('importExportDate'),
+  ribbonToggle: document.getElementById('ribbonToggle'),
+  ribbonIndicator: document.querySelector('.ribbon-mode-indicator')
 };
 
 // Utility functions for messaging
@@ -151,12 +154,6 @@ async function init() {
   if (elements.importFileInput) {
     elements.importFileInput.addEventListener('change', handleImportFile);
   }
-  if (elements.categoryFilter) {
-    elements.categoryFilter.addEventListener('change', (e) => {
-      state.selectedCategory = e.target.value;
-      render();
-    });
-  }
   if (elements.manageCategoriesBtn) {
     elements.manageCategoriesBtn.addEventListener('click', openCategoryModal);
   }
@@ -188,6 +185,10 @@ async function init() {
   }
   if (elements.cancelImportBtn) {
     elements.cancelImportBtn.addEventListener('click', closeImportModal);
+  }
+  // Ribbon toggle
+  if (elements.ribbonToggle) {
+    elements.ribbonToggle.addEventListener('click', toggleRibbonMode);
   }
   // Close modals on background click
   if (elements.categoryModal) {
@@ -299,6 +300,11 @@ function render() {
     const card = createCard(h);
     elements.list.appendChild(card);
   });
+  
+  // Apply ribbons if ribbon mode is active
+  if (state.ribbonMode) {
+    setTimeout(() => addRibbonsToCards(), 50);
+  }
 }
 
 function createCard(highlight) {
@@ -487,21 +493,55 @@ async function loadCategories() {
 }
 
 function updateCategoryFilters() {
-  // Update main category filter
-  if (elements.categoryFilter) {
-    const currentValue = elements.categoryFilter.value;
-    elements.categoryFilter.innerHTML = '<option value="all">All Categories</option><option value="uncategorized">Uncategorized</option>';
+  // Update category chips
+  const chipsContainer = document.getElementById('categoryChips');
+  if (chipsContainer) {
+    const addBtn = chipsContainer.querySelector('.add-category-btn');
     
+    // Clear existing chips (keep add button)
+    chipsContainer.innerHTML = '';
+    
+    // Add "All" chip
+    const allChip = document.createElement('button');
+    allChip.className = 'category-chip' + (state.selectedCategory === 'all' ? ' active' : '');
+    allChip.textContent = 'All';
+    allChip.onclick = () => {
+      state.selectedCategory = 'all';
+      updateCategoryFilters();
+      render();
+    };
+    chipsContainer.appendChild(allChip);
+    
+    // Add "Uncategorized" chip if there are any
+    const uncategorizedCount = state.highlights.filter(h => !h.category || h.category === 'uncategorized').length;
+    if (uncategorizedCount > 0 || state.selectedCategory === 'uncategorized') {
+      const uncatChip = document.createElement('button');
+      uncatChip.className = 'category-chip' + (state.selectedCategory === 'uncategorized' ? ' active' : '');
+      uncatChip.textContent = 'Uncategorized';
+      uncatChip.onclick = () => {
+        state.selectedCategory = 'uncategorized';
+        updateCategoryFilters();
+        render();
+      };
+      chipsContainer.appendChild(uncatChip);
+    }
+    
+    // Add category chips
     state.categories.forEach(cat => {
-      const option = document.createElement('option');
-      option.value = cat;
-      option.textContent = cat;
-      elements.categoryFilter.appendChild(option);
+      const chip = document.createElement('button');
+      chip.className = 'category-chip' + (state.selectedCategory === cat ? ' active' : '');
+      chip.textContent = cat;
+      chip.onclick = () => {
+        state.selectedCategory = cat;
+        updateCategoryFilters();
+        render();
+      };
+      chipsContainer.appendChild(chip);
     });
     
-    // Restore selected value if it still exists
-    if (currentValue && (currentValue === 'all' || currentValue === 'uncategorized' || state.categories.includes(currentValue))) {
-      elements.categoryFilter.value = currentValue;
+    // Re-add the add button
+    if (addBtn) {
+      chipsContainer.appendChild(addBtn);
     }
   }
 
@@ -930,6 +970,118 @@ if (!document.getElementById('notification-styles')) {
     }
   `;
   document.head.appendChild(style);
+}
+
+// Ribbon Mode Functions
+let ribbonIndicatorTimeout = null;
+
+function toggleRibbonMode() {
+  state.ribbonMode = !state.ribbonMode;
+  
+  // Toggle body class for custom cursor
+  if (state.ribbonMode) {
+    document.body.classList.add('ribbon-mode');
+    elements.ribbonToggle.classList.add('active');
+    
+    // Show indicator briefly
+    if (elements.ribbonIndicator) {
+      // Clear any existing timeout
+      if (ribbonIndicatorTimeout) {
+        clearTimeout(ribbonIndicatorTimeout);
+      }
+      
+      // Show indicator immediately
+      elements.ribbonIndicator.style.opacity = '1';
+      elements.ribbonIndicator.style.transform = 'translateY(0) scale(1)';
+      
+      // Hide after 1 second
+      ribbonIndicatorTimeout = setTimeout(() => {
+        elements.ribbonIndicator.style.opacity = '0';
+        elements.ribbonIndicator.style.transform = 'translateY(20px) scale(0.8)';
+      }, 1000);
+    }
+    
+    // Add ribbons to all cards
+    addRibbonsToCards();
+  } else {
+    document.body.classList.remove('ribbon-mode');
+    elements.ribbonToggle.classList.remove('active');
+    
+    // Hide indicator immediately when turning off
+    if (elements.ribbonIndicator) {
+      if (ribbonIndicatorTimeout) {
+        clearTimeout(ribbonIndicatorTimeout);
+      }
+      elements.ribbonIndicator.style.opacity = '0';
+      elements.ribbonIndicator.style.transform = 'translateY(20px) scale(0.8)';
+    }
+    
+    // Remove ribbons from all cards
+    removeRibbonsFromCards();
+  }
+}
+
+function addRibbonsToCards() {
+  const cards = document.querySelectorAll('.highlight-card');
+  cards.forEach((card, index) => {
+    // Add ribbon class
+    card.classList.add('has-ribbon');
+    
+    // Determine ribbon style based on index
+    const ribbonType = index % 4; // 4 different ribbon styles
+    
+    // Clear existing ribbons
+    card.querySelectorAll('.ribbon-corner, .ribbon-banner, .ribbon-wave, .ribbon-shimmer').forEach(el => el.remove());
+    
+    // Add appropriate ribbon elements
+    if (ribbonType === 0) {
+      // Corner ribbon
+      const corner = document.createElement('div');
+      corner.className = 'ribbon-corner';
+      card.appendChild(corner);
+      
+      const shimmer = document.createElement('div');
+      shimmer.className = 'ribbon-shimmer';
+      card.appendChild(shimmer);
+    } else if (ribbonType === 1) {
+      // Banner ribbon
+      const banner = document.createElement('div');
+      banner.className = 'ribbon-banner';
+      banner.textContent = 'NEW';
+      card.appendChild(banner);
+      
+      const wave = document.createElement('div');
+      wave.className = 'ribbon-wave';
+      card.appendChild(wave);
+    } else if (ribbonType === 2) {
+      // Corner + wave
+      const corner = document.createElement('div');
+      corner.className = 'ribbon-corner';
+      card.appendChild(corner);
+      
+      const wave = document.createElement('div');
+      wave.className = 'ribbon-wave';
+      card.appendChild(wave);
+    } else {
+      // Banner + shimmer
+      const banner = document.createElement('div');
+      banner.className = 'ribbon-banner';
+      banner.textContent = '★';
+      card.appendChild(banner);
+      
+      const shimmer = document.createElement('div');
+      shimmer.className = 'ribbon-shimmer';
+      card.appendChild(shimmer);
+    }
+  });
+}
+
+function removeRibbonsFromCards() {
+  const cards = document.querySelectorAll('.highlight-card');
+  cards.forEach(card => {
+    card.classList.remove('has-ribbon');
+    card.querySelectorAll('.ribbon-corner, .ribbon-banner, .ribbon-wave, .ribbon-shimmer, .ribbon-fold').forEach(el => el.remove());
+  });
 }
 
 document.addEventListener('DOMContentLoaded', init);

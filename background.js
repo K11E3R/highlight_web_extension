@@ -497,10 +497,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // Support for SPAs: if URL changes without a reload
-  if (changeInfo.url) {
-    chrome.tabs.sendMessage(tabId, { type: 'UPDATE_HIGHLIGHTS_ON_NAV' }, () => {
-      // Ignore errors if content script isn't ready or doesn't exist
-      if (chrome.runtime.lastError) return;
+  if (changeInfo.url && changeInfo.status === 'complete') {
+    // Check if URL is accessible before trying to send message
+    const restriction = isRestrictedUrl(changeInfo.url);
+    if (restriction.restricted) return;
+    
+    chrome.tabs.sendMessage(tabId, { type: 'UPDATE_HIGHLIGHTS_ON_NAV' }, (response) => {
+      // Silently ignore errors - content script may not be ready
+      if (chrome.runtime.lastError) {
+        // This is expected for many pages, don't log
+        return;
+      }
     });
   }
 });
