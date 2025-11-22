@@ -198,6 +198,8 @@ async function init() {
   setupColorFilters();
   // Blur text animation for title
   setupBlurTextAnimation();
+  // Hover-to-charge effect for import/export
+  setupHoverToCharge();
   // Close modals on background click
   if (elements.categoryModal) {
     elements.categoryModal.addEventListener('click', (e) => {
@@ -1220,6 +1222,101 @@ function setupBlurTextAnimation() {
       console.log('Blur animation completed! ✨');
     }, totalDuration);
   });
+}
+
+// Hover-to-Charge Effect for Import/Export Buttons
+function setupHoverToCharge() {
+  const chargeDuration = 2000; // 2 seconds to fully charge
+  let exportChargeTimeout = null;
+  let importChargeTimeout = null;
+  let exportCharged = false;
+  let importCharged = false;
+  
+  // Export button
+  if (elements.exportBtn) {
+    elements.exportBtn.addEventListener('mouseenter', function() {
+      if (exportCharged) return;
+      
+      this.classList.add('charging');
+      
+      // Start charging
+      exportChargeTimeout = setTimeout(() => {
+        // Fully charged
+        this.classList.remove('charging');
+        this.classList.add('fully-charged');
+        exportCharged = true;
+        
+        // Trigger export action immediately
+        exportHighlights();
+        
+        // Reset after visual feedback
+        setTimeout(() => {
+          this.classList.remove('fully-charged');
+          exportCharged = false;
+        }, 600);
+      }, chargeDuration);
+    });
+    
+    elements.exportBtn.addEventListener('mouseleave', function() {
+      if (exportChargeTimeout) {
+        clearTimeout(exportChargeTimeout);
+        exportChargeTimeout = null;
+      }
+      if (!exportCharged) {
+        this.classList.remove('charging');
+      }
+    });
+  }
+  
+  // Import button - requires click after charging
+  if (elements.importBtn) {
+    elements.importBtn.addEventListener('mouseenter', function() {
+      if (importCharged) return;
+      
+      this.classList.add('charging');
+      
+      // Start charging
+      importChargeTimeout = setTimeout(() => {
+        // Fully charged - ready for click
+        this.classList.remove('charging');
+        this.classList.add('fully-charged', 'ready-to-click');
+        importCharged = true;
+      }, chargeDuration);
+    });
+    
+    elements.importBtn.addEventListener('mouseleave', function() {
+      if (importChargeTimeout) {
+        clearTimeout(importChargeTimeout);
+        importChargeTimeout = null;
+      }
+      if (!importCharged) {
+        this.classList.remove('charging');
+      }
+    });
+    
+    // Click handler - only works when fully charged
+    elements.importBtn.addEventListener('click', function(e) {
+      if (importCharged) {
+        // Trigger import file picker with user gesture
+        if (elements.importFileInput) {
+          elements.importFileInput.click();
+        }
+        
+        // Reset after triggering
+        setTimeout(() => {
+          this.classList.remove('fully-charged', 'ready-to-click');
+          importCharged = false;
+        }, 600);
+      } else {
+        // Not charged yet - show hint
+        e.preventDefault();
+        this.classList.add('charging-hint');
+        setTimeout(() => {
+          this.classList.remove('charging-hint');
+        }, 1000);
+      }
+    });
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);
