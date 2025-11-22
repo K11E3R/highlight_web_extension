@@ -1128,15 +1128,16 @@ function startRibbonTrail() {
     ribbonTrail.destroy();
   }
   
-  // Initialize ribbon trail with custom colors
+  // Initialize ribbon trail with adaptive colors
   ribbonTrail = new window.RibbonTrail({
-    colors: ['#ffffff'],
+    colors: ['#ffffff'], // Will adapt automatically
     baseThickness: 25,
     maxAge: 400,
     pointCount: 40,
     speedMultiplier: 0.5,
     baseSpring: 0.03,
-    baseFriction: 0.88
+    baseFriction: 0.88,
+    adaptiveColors: true // Enable color adaptation
   });
   
   // Initialize on body

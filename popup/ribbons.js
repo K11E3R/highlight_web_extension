@@ -1,5 +1,6 @@
 // Ribbon Cursor Trail Effect
 // Inspired by OGL Ribbons with smooth physics-based motion
+// Auto-adapts color based on background brightness
 
 class RibbonTrail {
   constructor(options = {}) {
@@ -10,6 +11,7 @@ class RibbonTrail {
     this.speedMultiplier = options.speedMultiplier || 0.6;
     this.baseSpring = options.baseSpring || 0.03;
     this.baseFriction = options.baseFriction || 0.9;
+    this.adaptiveColors = options.adaptiveColors !== false; // Enable by default
     
     this.canvas = null;
     this.ctx = null;
@@ -17,6 +19,7 @@ class RibbonTrail {
     this.mouse = { x: 0, y: 0 };
     this.animationId = null;
     this.lastTime = performance.now();
+    this.currentAdaptiveColor = '#ffffff';
   }
 
   init(container) {
@@ -36,10 +39,15 @@ class RibbonTrail {
     this.resize();
     window.addEventListener('resize', () => this.resize());
     
+    // Detect initial background color
+    if (this.adaptiveColors) {
+      this.updateAdaptiveColor();
+    }
+    
     // Initialize ribbons
     this.colors.forEach((color, index) => {
       const ribbon = {
-        color: color,
+        color: this.adaptiveColors ? this.currentAdaptiveColor : color,
         points: [],
         velocity: { x: 0, y: 0 },
         spring: this.baseSpring + (Math.random() - 0.5) * 0.01,
@@ -73,6 +81,75 @@ class RibbonTrail {
   updateMouse(x, y) {
     this.mouse.x = x;
     this.mouse.y = y;
+    
+    // Update adaptive color based on background at cursor position
+    if (this.adaptiveColors) {
+      this.updateAdaptiveColor(x, y);
+    }
+  }
+
+  updateAdaptiveColor(x, y) {
+    try {
+      // Get element at cursor position or body background
+      let element;
+      if (x !== undefined && y !== undefined) {
+        element = document.elementFromPoint(x, y);
+      }
+      if (!element) {
+        element = document.body;
+      }
+      
+      // Get computed background color
+      const bg = window.getComputedStyle(element).backgroundColor;
+      
+      // If transparent, check parent elements
+      if (bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') {
+        let parent = element.parentElement;
+        let depth = 0;
+        while (parent && depth < 10) {
+          const parentBg = window.getComputedStyle(parent).backgroundColor;
+          if (parentBg !== 'rgba(0, 0, 0, 0)' && parentBg !== 'transparent') {
+            const brightness = this.getColorBrightness(parentBg);
+            this.currentAdaptiveColor = brightness > 128 ? '#1a1a1a' : '#ffffff';
+            this.updateRibbonColors();
+            return;
+          }
+          parent = parent.parentElement;
+          depth++;
+        }
+        // Default to light background assumption
+        this.currentAdaptiveColor = '#1a1a1a';
+      } else {
+        const brightness = this.getColorBrightness(bg);
+        // If light background (>128), use dark ribbon; if dark, use light ribbon
+        this.currentAdaptiveColor = brightness > 128 ? '#1a1a1a' : '#ffffff';
+      }
+      
+      this.updateRibbonColors();
+    } catch (e) {
+      // Fallback to white on error
+      this.currentAdaptiveColor = '#ffffff';
+    }
+  }
+
+  getColorBrightness(color) {
+    // Parse rgb/rgba color string
+    const rgb = color.match(/\d+/g);
+    if (!rgb || rgb.length < 3) return 128;
+    
+    // Calculate relative luminance
+    const r = parseInt(rgb[0]);
+    const g = parseInt(rgb[1]);
+    const b = parseInt(rgb[2]);
+    
+    // Perceived brightness formula
+    return (r * 299 + g * 587 + b * 114) / 1000;
+  }
+
+  updateRibbonColors() {
+    this.ribbons.forEach(ribbon => {
+      ribbon.color = this.currentAdaptiveColor;
+    });
   }
 
   animate() {
