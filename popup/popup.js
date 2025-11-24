@@ -219,14 +219,33 @@ async function init() {
 }
 
 function switchView(view) {
-  state.view = view;
-  if (elements.viewPageBtn) {
-    elements.viewPageBtn.classList.toggle('active', view === 'page');
+  if (state.view === view) return; // Already in this view
+  
+  // Add exit animation
+  if (elements.list) {
+    elements.list.classList.add('view-switching');
   }
-  if (elements.viewAllBtn) {
-    elements.viewAllBtn.classList.toggle('active', view === 'all');
-  }
-  loadHighlights();
+  
+  // Wait for exit animation, then switch
+  setTimeout(() => {
+    state.view = view;
+    if (elements.viewPageBtn) {
+      elements.viewPageBtn.classList.toggle('active', view === 'page');
+    }
+    if (elements.viewAllBtn) {
+      elements.viewAllBtn.classList.toggle('active', view === 'all');
+    }
+    
+    // Load highlights (will trigger entrance animation)
+    loadHighlights();
+    
+    // Remove switching class after a brief delay
+    setTimeout(() => {
+      if (elements.list) {
+        elements.list.classList.remove('view-switching');
+      }
+    }, 100);
+  }, 400); // Match viewFadeOut duration
 }
 
 async function loadHighlights() {
@@ -325,6 +344,8 @@ function render() {
 function createCard(highlight) {
   const div = document.createElement('div');
   div.className = 'highlight-card';
+  div.style.cursor = 'pointer'; // Make it clear the card is clickable
+  div.title = 'Click to view and blink this highlight';
 
   const sourceUrlHtml = state.view === 'all' && highlight.sourceUrl
     ? `<div class="source-url" title="${escapeHtml(highlight.sourceUrl)}">${escapeHtml(new URL(highlight.sourceUrl).hostname)}</div>`
@@ -365,6 +386,26 @@ function createCard(highlight) {
     <div class="highlight-text">${highlightText}</div>
     <textarea class="note-area" placeholder="Add a note...">${noteText}</textarea>
   `;
+
+  // Card click - open and blink highlight
+  div.onclick = (e) => {
+    // Don't trigger if clicking on interactive elements
+    if (e.target.closest('button') || e.target.closest('textarea') || e.target.closest('select')) {
+      return;
+    }
+    
+    if (state.view === 'all' && highlight.sourceUrl && highlight.sourceUrl !== state.currentUrl) {
+      // Open page and blink
+      chrome.runtime.sendMessage({
+        type: 'OPEN_AND_BLINK_HIGHLIGHT',
+        url: highlight.sourceUrl,
+        id: highlight.id
+      });
+    } else {
+      // Same page - just blink
+      blinkHighlight(highlight.id);
+    }
+  };
 
   // Events
   const deleteBtn = div.querySelector('.delete-btn');
@@ -488,6 +529,17 @@ async function scrollToHighlight(id) {
   if (tab) {
     try {
       await tabMessage(tab.id, { type: 'FOCUS_HIGHLIGHT', id });
+    } catch (e) {
+      console.log('Content script not ready');
+    }
+  }
+}
+
+async function blinkHighlight(id) {
+  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  if (tab) {
+    try {
+      await tabMessage(tab.id, { type: 'BLINK_HIGHLIGHT', id });
     } catch (e) {
       console.log('Content script not ready');
     }

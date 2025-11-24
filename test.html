@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Highlight Test Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        h1 {
+            color: #333;
+        }
+        p {
+            font-size: 18px;
+            margin: 20px 0;
+        }
+        .test-section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Highlight Extension Test Page</h1>
+    
+    <div class="test-section">
+        <h2>Test Case 1: Single Spaces Between Words</h2>
+        <p>This is a simple sentence with single spaces between words.</p>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Case 2: Multiple Spaces</h2>
+        <p>This sentence has    multiple    spaces    between    some    words.</p>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Case 3: Mixed Content</h2>
+        <p>Some words with single spaces and    some with    multiple spaces together.</p>
+    </div>
+    
+    <div class="test-section">
+        <h2>Test Case 4: Long Text</h2>
+        <p>The quick brown fox jumps over the lazy dog. This pangram contains every letter of the alphabet and is commonly used for testing purposes.</p>
+    </div>
+    
+    <div class="test-section">
+        <h2>Instructions</h2>
+        <ul>
+            <li>Select text from any test case above</li>
+            <li>Choose a highlight color from the tooltip</li>
+            <li>Verify that single spaces are NOT highlighted</li>
+            <li>Verify that multiple spaces (2+) ARE highlighted</li>
+            <li>Verify that all words ARE highlighted</li>
+        </ul>
+    </div>
+</body>
+</html>
+

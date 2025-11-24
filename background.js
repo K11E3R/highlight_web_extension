@@ -147,6 +147,8 @@ async function getAllHighlights() {
 const pendingFocus = {}; // Maps tabId -> highlightId
 
 chrome.runtime.onInstalled.addListener(() => {
+  // Remove any existing context menus to avoid duplicate ID errors
+  chrome.contextMenus.removeAll(() => {
   chrome.contextMenus.create({
     id: 'persistentHighlighter.highlight',
     title: 'Highlight selection',
@@ -157,6 +159,7 @@ chrome.runtime.onInstalled.addListener(() => {
     id: 'persistentHighlighter.unhighlight',
     title: 'Unhighlight selection',
     contexts: ['selection'],
+    });
   });
 });
 
@@ -473,16 +476,36 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true });
         break;
       }
+      case 'OPEN_AND_BLINK_HIGHLIGHT': {
+        // Store the pending blink request
+        chrome.tabs.create({ url: message.url }, (tab) => {
+          pendingFocus[tab.id] = { id: message.id, action: 'BLINK' };
+        });
+        sendResponse({ success: true });
+        break;
+      }
       case 'CONTENT_SCRIPT_READY': {
         // Check if there's a pending focus for this tab
         const tabId = sender.tab.id;
         if (pendingFocus[tabId]) {
-          const highlightId = pendingFocus[tabId];
+          const pending = pendingFocus[tabId];
           delete pendingFocus[tabId]; // Clear the pending task
 
-          // Send the focus command now that we know the script is ready
+          // Send the appropriate command based on the action
+          if (typeof pending === 'object' && pending.action === 'BLINK') {
+            chrome.tabs.sendMessage(tabId, { type: 'BLINK_HIGHLIGHT', id: pending.id });
+          } else {
+            // Legacy format or focus action
+            const highlightId = typeof pending === 'string' ? pending : pending.id;
           chrome.tabs.sendMessage(tabId, { type: 'FOCUS_HIGHLIGHT', id: highlightId });
+          }
         }
+        sendResponse({ success: true });
+        break;
+      }
+      case 'HIGHLIGHT_CREATED': {
+        // Blink the extension badge with +1
+        blinkExtensionBadge();
         sendResponse({ success: true });
         break;
       }
@@ -494,6 +517,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   handler();
   return true;
 });
+
+// Badge blink animation
+let badgeBlinkTimeout = null;
+
+function blinkExtensionBadge() {
+  // Clear any existing timeout
+  if (badgeBlinkTimeout) {
+    clearTimeout(badgeBlinkTimeout);
+  }
+
+  // Set badge text to +1
+  chrome.action.setBadgeText({ text: '+1' });
+  chrome.action.setBadgeBackgroundColor({ color: '#4ade80' }); // Green
+
+  // Blink effect - toggle between visible and hidden
+  let blinkCount = 0;
+  const blinkInterval = setInterval(() => {
+    blinkCount++;
+    if (blinkCount % 2 === 0) {
+      chrome.action.setBadgeText({ text: '+1' });
+    } else {
+      chrome.action.setBadgeText({ text: '' });
+    }
+
+    // Stop after 8 blinks (4 full cycles)
+    if (blinkCount >= 8) {
+      clearInterval(blinkInterval);
+      // Clear badge after final blink
+      badgeBlinkTimeout = setTimeout(() => {
+        chrome.action.setBadgeText({ text: '' });
+      }, 400);
+    }
+  }, 250); // Blink every 250ms
+}
 
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   // Support for SPAs: if URL changes without a reload

@@ -35,6 +35,114 @@ function injectStyles() {
       100% { transform: scale(1); filter: brightness(1); box-shadow: 0 0 0 0 var(--highlight-color); }
     }
     
+    .${HIGHLIGHT_CLASS}.persistent-highlighter-blink {
+      animation: phBlink 0.4s ease-in-out 5;
+      position: relative;
+      z-index: 2147483646;
+    }
+    @keyframes phBlink {
+      0%, 100% { 
+        filter: brightness(1); 
+        box-shadow: 0 0 0 0 var(--highlight-color);
+      }
+      50% { 
+        filter: brightness(1.5); 
+        box-shadow: 0 0 16px 6px var(--highlight-color);
+        transform: scale(1.02);
+      }
+    }
+    
+    /* Wave highlight animation */
+    .${HIGHLIGHT_CLASS}.persistent-highlighter-wave {
+      animation: phWave 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      position: relative;
+      z-index: 2147483646;
+    }
+    @keyframes phWave {
+      0% { 
+        filter: brightness(1);
+        box-shadow: 0 0 0 0 var(--highlight-color);
+        transform: scale(1) translateY(0);
+      }
+      15% {
+        filter: brightness(1.8);
+        box-shadow: 0 0 20px 8px var(--highlight-color);
+        transform: scale(1.08) translateY(-3px);
+      }
+      30% {
+        filter: brightness(1.2);
+        box-shadow: 0 0 10px 4px var(--highlight-color);
+        transform: scale(0.98) translateY(2px);
+      }
+      45% {
+        filter: brightness(1.6);
+        box-shadow: 0 0 16px 6px var(--highlight-color);
+        transform: scale(1.04) translateY(-1px);
+      }
+      60% {
+        filter: brightness(1.1);
+        box-shadow: 0 0 6px 2px var(--highlight-color);
+        transform: scale(1) translateY(1px);
+      }
+      75% {
+        filter: brightness(1.3);
+        box-shadow: 0 0 12px 4px var(--highlight-color);
+        transform: scale(1.02) translateY(0);
+      }
+      100% { 
+        filter: brightness(1);
+        box-shadow: 0 0 0 0 var(--highlight-color);
+        transform: scale(1) translateY(0);
+      }
+    }
+    
+    /* +1 Notification */
+    .persistent-highlighter-plus-one {
+      position: fixed;
+      z-index: 2147483647;
+      font-size: 32px;
+      font-weight: 800;
+      color: #4ade80;
+      text-shadow: 
+        0 0 20px rgba(74, 222, 128, 0.9),
+        0 0 40px rgba(74, 222, 128, 0.6),
+        0 4px 8px rgba(0, 0, 0, 0.4);
+      pointer-events: none;
+      animation: phPlusOne 1.2s cubic-bezier(0.4, 0, 0.2, 1) forwards;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+      letter-spacing: -1px;
+    }
+    @keyframes phPlusOne {
+      0% { 
+        opacity: 0;
+        transform: translateX(-50%) translateY(20px) scale(0.5) rotate(-10deg);
+        filter: blur(4px);
+      }
+      15% { 
+        opacity: 1;
+        transform: translateX(-50%) translateY(-5px) scale(1.3) rotate(5deg);
+        filter: blur(0);
+      }
+      30% {
+        transform: translateX(-50%) translateY(-15px) scale(1.1) rotate(-2deg);
+      }
+      50% {
+        opacity: 1;
+        transform: translateX(-50%) translateY(-25px) scale(1.2) rotate(0deg);
+      }
+      70% {
+        opacity: 0.8;
+        transform: translateX(-50%) translateY(-35px) scale(1) rotate(2deg);
+      }
+      100% { 
+        opacity: 0;
+        transform: translateX(-50%) translateY(-50px) scale(0.8) rotate(0deg);
+        filter: blur(2px);
+      }
+    }
+    
     /* Floating Tooltip */
     #${TOOLTIP_ID} {
       position: absolute;
@@ -302,28 +410,10 @@ function highlightRange(range, id, color) {
     
     if (start >= end) return; // No actual selection
     
-    const span = document.createElement('span');
-    span.className = HIGHLIGHT_CLASS;
-    span.dataset.highlightId = id;
-    // Use color-mix for transparency, fallback to rgba if needed
-    span.style.setProperty('--highlight-color', color);
+    // Extract the text to highlight
+    const textToHighlight = node.textContent.substring(start, end);
     
-    // Apply semi-transparent background
-    if (color.startsWith('#')) {
-      // Convert hex to rgba with 40% opacity
-      const r = parseInt(color.slice(1, 3), 16);
-      const g = parseInt(color.slice(3, 5), 16);
-      const b = parseInt(color.slice(5, 7), 16);
-      span.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.4)`;
-    } else {
-      span.style.backgroundColor = color;
-    }
-    
-    // Set text color for contrast
-    const textColor = getContrastTextColor(color);
-    span.style.setProperty('--highlight-text-color', textColor);
-
-    // Split text node precisely at the selection boundaries
+    // Split text node at boundaries first
     let targetNode = node;
     
     // Case 1: Start is not at the beginning - split before
@@ -332,24 +422,137 @@ function highlightRange(range, id, color) {
     }
     
     // Case 2: End is not at the end - split after
-    const actualEnd = end - start; // Adjust for the split if we did one
+    const actualEnd = end - start;
     if (actualEnd < targetNode.textContent.length) {
       targetNode.splitText(actualEnd);
     }
-
-    // Wrap the target node
+    
+    // Now split the target node into words and spaces
+    // Pattern: Match words (non-space) OR spaces (any length)
+    const parts = textToHighlight.match(/\S+|\s+/g) || [];
+    
+    if (parts.length === 0) return;
+    
     const parent = targetNode.parentNode;
-    if (parent && targetNode.textContent.length > 0) {
-      parent.replaceChild(span, targetNode);
-      span.appendChild(targetNode);
-      spans.push(span);
+    if (!parent) return;
+    
+    const fragment = document.createDocumentFragment();
+    
+    // Process each part and preserve ALL characters
+    parts.forEach((part) => {
+      // Check if this part is a word (contains non-whitespace)
+      const isWord = /\S/.test(part);
+      
+      // ONLY highlight words - NEVER highlight any whitespace (single space, multiple spaces, newlines, etc.)
+      if (isWord) {
+        // Highlight the word only
+        const span = document.createElement('span');
+        span.className = HIGHLIGHT_CLASS;
+        span.dataset.highlightId = id;
+        span.style.setProperty('--highlight-color', color);
+        
+        // Apply semi-transparent background
+        if (color.startsWith('#')) {
+          const r = parseInt(color.slice(1, 3), 16);
+          const g = parseInt(color.slice(3, 5), 16);
+          const b = parseInt(color.slice(5, 7), 16);
+          span.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.4)`;
+        } else {
+          span.style.backgroundColor = color;
+        }
+        
+        // Set text color for contrast
+        const textColor = getContrastTextColor(color);
+        span.style.setProperty('--highlight-text-color', textColor);
+        
+        span.textContent = part;
+        fragment.appendChild(span);
+        spans.push(span);
+      } else {
+        // This is whitespace (single space, multiple spaces, newlines, tabs, etc.)
+        // IMPORTANT: Don't highlight - add as plain text to preserve spacing
+        const textNode = document.createTextNode(part);
+        fragment.appendChild(textNode);
+      }
+    });
+    
+    // Verify we're preserving all content before replacing
+    const fragmentText = Array.from(fragment.childNodes).map(n => n.textContent).join('');
+    if (fragmentText !== textToHighlight) {
+      console.warn('Text mismatch! Original:', textToHighlight, 'Fragment:', fragmentText);
+      // Fallback: just wrap everything in a single span if reconstruction failed
+      const fallbackSpan = document.createElement('span');
+      fallbackSpan.className = HIGHLIGHT_CLASS;
+      fallbackSpan.dataset.highlightId = id;
+      fallbackSpan.style.setProperty('--highlight-color', color);
+      if (color.startsWith('#')) {
+        const r = parseInt(color.slice(1, 3), 16);
+        const g = parseInt(color.slice(3, 5), 16);
+        const b = parseInt(color.slice(5, 7), 16);
+        fallbackSpan.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.4)`;
+      } else {
+        fallbackSpan.style.backgroundColor = color;
+      }
+      fallbackSpan.textContent = textToHighlight;
+      const fallbackFragment = document.createDocumentFragment();
+      fallbackFragment.appendChild(fallbackSpan);
+      parent.replaceChild(fallbackFragment, targetNode);
+      spans.push(fallbackSpan);
+      return;
     }
-  });
-
-  return spans;
-}
-
-function applyHighlightFromData(data) {
+    
+    // Replace the original text node with the fragment
+    parent.replaceChild(fragment, targetNode);
+   });
+ 
+   // Apply wave animation to all spans
+   if (spans.length > 0) {
+     // Add wave animation with staggered delay
+     spans.forEach((span, index) => {
+       span.classList.add('persistent-highlighter-wave');
+       span.style.animationDelay = `${index * 0.05}s`; // Stagger by 50ms
+       
+       // Remove wave class after animation
+       setTimeout(() => {
+         span.classList.remove('persistent-highlighter-wave');
+         span.style.animationDelay = '';
+       }, 800 + (index * 50));
+     });
+     
+     // Show +1 notification near the first span
+     showPlusOneNotification(spans[0]);
+   }
+ 
+   return spans;
+ }
+ 
+ function showPlusOneNotification(element) {
+   const rect = element.getBoundingClientRect();
+   const notification = document.createElement('div');
+   notification.className = 'persistent-highlighter-plus-one';
+   notification.textContent = '+1';
+   
+   // Position near the highlight (centered)
+   notification.style.left = `${rect.left + rect.width / 2}px`;
+   notification.style.top = `${rect.top - 10}px`;
+   
+   document.body.appendChild(notification);
+   
+   // Remove after animation
+   setTimeout(() => {
+     if (notification.parentNode) {
+       notification.parentNode.removeChild(notification);
+     }
+   }, 1200);
+   
+   // Send message to background to blink badge
+   chrome.runtime.sendMessage({ 
+     type: 'HIGHLIGHT_CREATED',
+     timestamp: Date.now()
+   });
+ }
+ 
+ function applyHighlightFromData(data) {
   const startNode = getNodeFromXPath(data.range.startXPath);
   const endNode = getNodeFromXPath(data.range.endXPath);
 
@@ -571,6 +774,128 @@ function safeRuntimeMessageCallback(message, callback) {
   }
 }
 
+function trimRange(range) {
+  // Clone the range to avoid modifying the original
+  const trimmedRange = range.cloneRange();
+  
+  // Helper function to move range start forward past whitespace
+  function trimStart(range) {
+    let startContainer = range.startContainer;
+    let startOffset = range.startOffset;
+    
+    // If start is in an element node, find the first text node
+    if (startContainer.nodeType !== Node.TEXT_NODE) {
+      const walker = document.createTreeWalker(
+        startContainer,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+      let node = walker.nextNode();
+      if (node) {
+        startContainer = node;
+        startOffset = 0;
+      }
+    }
+    
+    // If we're in a text node, skip leading whitespace
+    if (startContainer.nodeType === Node.TEXT_NODE) {
+      const text = startContainer.textContent;
+      while (startOffset < text.length && /\s/.test(text[startOffset])) {
+        startOffset++;
+      }
+      
+      // If we've consumed the entire text node, move to next text node
+      if (startOffset >= text.length) {
+        const walker = document.createTreeWalker(
+          range.commonAncestorContainer,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+        walker.currentNode = startContainer;
+        let nextNode = walker.nextNode();
+        
+        while (nextNode && nextNode !== range.endContainer) {
+          const nextText = nextNode.textContent;
+          const firstNonWhitespace = nextText.search(/\S/);
+          
+          if (firstNonWhitespace !== -1) {
+            startContainer = nextNode;
+            startOffset = firstNonWhitespace;
+            break;
+          }
+          nextNode = walker.nextNode();
+        }
+      }
+      
+      range.setStart(startContainer, startOffset);
+    }
+  }
+  
+  // Helper function to move range end backward past whitespace
+  function trimEnd(range) {
+    let endContainer = range.endContainer;
+    let endOffset = range.endOffset;
+    
+    // If end is in an element node, find the last text node
+    if (endContainer.nodeType !== Node.TEXT_NODE) {
+      const walker = document.createTreeWalker(
+        endContainer,
+        NodeFilter.SHOW_TEXT,
+        null
+      );
+      let node = walker.lastChild();
+      if (node) {
+        endContainer = node;
+        endOffset = node.textContent.length;
+      }
+    }
+    
+    // If we're in a text node, skip trailing whitespace
+    if (endContainer.nodeType === Node.TEXT_NODE) {
+      const text = endContainer.textContent;
+      while (endOffset > 0 && /\s/.test(text[endOffset - 1])) {
+        endOffset--;
+      }
+      
+      // If we've gone to the start of this text node, move to previous text node
+      if (endOffset === 0) {
+        const walker = document.createTreeWalker(
+          range.commonAncestorContainer,
+          NodeFilter.SHOW_TEXT,
+          null
+        );
+        walker.currentNode = endContainer;
+        let prevNode = walker.previousNode();
+        
+        while (prevNode && prevNode !== range.startContainer) {
+          const prevText = prevNode.textContent;
+          const lastNonWhitespace = prevText.search(/\S(?=\s*$)/);
+          
+          if (lastNonWhitespace !== -1) {
+            endContainer = prevNode;
+            endOffset = lastNonWhitespace + 1;
+            break;
+          }
+          prevNode = walker.previousNode();
+        }
+      }
+      
+      range.setEnd(endContainer, endOffset);
+    }
+  }
+  
+  // Trim both ends
+  trimStart(trimmedRange);
+  trimEnd(trimmedRange);
+  
+  // Validate the range
+  if (trimmedRange.collapsed || !trimmedRange.toString().trim()) {
+    return null;
+  }
+  
+  return trimmedRange;
+}
+
 async function createHighlight(color, colorName = 'yellow') {
   // Proactive check for extension context
   if (!isExtensionContextValid()) {
@@ -581,28 +906,24 @@ async function createHighlight(color, colorName = 'yellow') {
   const selection = window.getSelection();
   if (selection.isCollapsed) return;
 
-  const range = selection.getRangeAt(0);
+  let range = selection.getRangeAt(0);
   
-  // IMPORTANT: Capture text BEFORE modifying the DOM
-  // Try multiple methods to ensure we get the text
+  // TRIM WHITESPACE FROM RANGE BOUNDARIES
+  // This ensures we never highlight leading/trailing spaces
+  const trimmedRange = trimRange(range);
+  
+  if (!trimmedRange) {
+    console.warn('No valid range after trimming');
+    return;
+  }
+  
+  range = trimmedRange;
+  
+  // Get the trimmed text
   let selectedText = range.toString().trim();
   
-  // Fallback: if toString() doesn't work, extract text manually
   if (!selectedText) {
-    const clonedRange = range.cloneRange();
-    const contents = clonedRange.extractContents();
-    selectedText = contents.textContent.trim();
-    // Put contents back
-    clonedRange.insertNode(contents);
-  }
-  
-  // Another fallback: use selection.toString()
-  if (!selectedText) {
-    selectedText = selection.toString().trim();
-  }
-  
-  if (!selectedText) {
-    console.warn('No text found in selection');
+    console.warn('No text found in selection after trimming');
     return;
   }
   
@@ -800,6 +1121,39 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // without returning true from the listener. 
       // For simplicity, we'll just send success: true immediately as we are handling it.
       sendResponse({ success: true, status: 'focusing' });
+    }
+  } else if (msg.type === 'BLINK_HIGHLIGHT') {
+    // Blink all spans with this highlight ID
+    const attemptBlink = (retries = 0) => {
+      const elements = document.querySelectorAll(`.${HIGHLIGHT_CLASS}[data-highlight-id="${msg.id}"]`);
+      if (elements.length > 0) {
+        // Scroll to first element
+        elements[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        
+        // Blink all spans
+        elements.forEach(el => {
+          el.classList.add('persistent-highlighter-blink');
+          el.style.setProperty('--highlight-color', el.style.backgroundColor || '#FFEB3B');
+        });
+        
+        // Remove blink class after animation
+        setTimeout(() => {
+          elements.forEach(el => el.classList.remove('persistent-highlighter-blink'));
+        }, 2000); // 5 blinks * 400ms = 2000ms
+        
+        return true;
+      } else if (retries < 50) {
+        // Retry every 100ms for up to 5 seconds
+        setTimeout(() => attemptBlink(retries + 1), 100);
+        return false;
+      }
+      return false;
+    };
+
+    if (attemptBlink()) {
+      sendResponse({ success: true });
+    } else {
+      sendResponse({ success: true, status: 'blinking' });
     }
   } else if (msg.type === 'CREATE_HIGHLIGHT_AT_SELECTION') {
     (async () => {

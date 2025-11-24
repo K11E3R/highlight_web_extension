@@ -436,6 +436,93 @@ h1 {
 }
 
 /* ==========================================
+   VIEW TRANSITION ANIMATIONS
+   ========================================== */
+
+.highlights-list {
+  animation: viewFadeIn 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.highlights-list.view-switching {
+  animation: viewFadeOut 0.4s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards;
+}
+
+@keyframes viewFadeOut {
+  0% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0deg);
+    filter: blur(0px);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-30px) scale(0.95) rotateX(-15deg);
+    filter: blur(8px);
+  }
+}
+
+@keyframes viewFadeIn {
+  0% {
+    opacity: 0;
+    transform: translateY(30px) scale(0.95) rotateX(15deg);
+    filter: blur(8px);
+  }
+  60% {
+    transform: translateY(-5px) scale(1.02) rotateX(-2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotateX(0deg);
+    filter: blur(0px);
+  }
+}
+
+/* Individual card entrance animations */
+.highlight-card {
+  animation: cardSlideIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) backwards;
+}
+
+.highlight-card:nth-child(1) { animation-delay: 0.05s; }
+.highlight-card:nth-child(2) { animation-delay: 0.1s; }
+.highlight-card:nth-child(3) { animation-delay: 0.15s; }
+.highlight-card:nth-child(4) { animation-delay: 0.2s; }
+.highlight-card:nth-child(5) { animation-delay: 0.25s; }
+.highlight-card:nth-child(6) { animation-delay: 0.3s; }
+.highlight-card:nth-child(7) { animation-delay: 0.35s; }
+.highlight-card:nth-child(8) { animation-delay: 0.4s; }
+
+@keyframes cardSlideIn {
+  0% {
+    opacity: 0;
+    transform: translateX(-50px) scale(0.9) rotateY(-20deg);
+    filter: blur(5px);
+  }
+  70% {
+    transform: translateX(5px) scale(1.02) rotateY(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateX(0) scale(1) rotateY(0deg);
+    filter: blur(0px);
+  }
+}
+
+/* Empty state animation */
+.empty-state {
+  animation: emptyStateFadeIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes emptyStateFadeIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.8) translateY(20px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+/* ==========================================
    COMPACT CARDS
    ========================================== */
 
@@ -451,15 +538,47 @@ h1 {
   border-radius: var(--radius-md);
   padding: var(--space-md);
   cursor: pointer;
-  transition: all var(--transition);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
   position: relative;
   overflow: hidden;
 }
 
+/* Spotlight effect - REMOVED to prevent moving background */
+.highlight-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: transparent;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.highlight-card:hover::before {
+  opacity: 0;
+}
+
 .highlight-card:hover {
   border-color: var(--color-accent);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
+  background: linear-gradient(135deg, 
+    var(--color-surface) 0%, 
+    rgba(255, 107, 107, 0.03) 100%);
+  box-shadow: 
+    0 8px 24px rgba(255, 107, 107, 0.15),
+    0 4px 12px rgba(255, 107, 107, 0.1),
+    var(--shadow-lg);
+  transform: translateY(-4px) scale(1.02);
+  transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+/* Ensure card content is above spotlight */
+.highlight-card > * {
+  position: relative;
+  z-index: 1;
 }
 
 /* ==========================================
