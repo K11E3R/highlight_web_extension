@@ -1344,7 +1344,7 @@ function startRibbonTrail() {
   ribbonTrail = new window.RibbonTrail({
     colors: ['#ffffff'], // Will adapt automatically
     baseThickness: 17,
-    maxAge: 490,
+    maxAge: 470,
     pointCount: 40,
     speedMultiplier: 0.6,
     baseSpring: 0.03,
