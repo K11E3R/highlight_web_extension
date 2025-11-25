@@ -1242,6 +1242,7 @@ if (!document.getElementById('notification-styles')) {
 // Ribbon Mode Functions
 let ribbonIndicatorTimeout = null;
 let ribbonTrail = null;
+let splashCursor = null;
 
 async function loadRibbonMode() {
   const result = await chrome.storage.local.get('ribbonMode');
@@ -1342,10 +1343,10 @@ function startRibbonTrail() {
   // Initialize ribbon trail with adaptive colors
   ribbonTrail = new window.RibbonTrail({
     colors: ['#ffffff'], // Will adapt automatically
-    baseThickness: 25,
-    maxAge: 400,
+    baseThickness: 17,
+    maxAge: 490,
     pointCount: 40,
-    speedMultiplier: 0.5,
+    speedMultiplier: 0.6,
     baseSpring: 0.03,
     baseFriction: 0.88,
     adaptiveColors: true // Enable color adaptation
@@ -1356,6 +1357,29 @@ function startRibbonTrail() {
   
   // Track mouse movement
   document.addEventListener('mousemove', handleRibbonMouseMove);
+  
+  // Initialize splash cursor WebGL effect
+  if (splashCursor) {
+    splashCursor.destroy();
+  }
+  
+  if (window.SplashCursor) {
+    splashCursor = new window.SplashCursor({
+      SIM_RESOLUTION: 128,
+      DYE_RESOLUTION: 1024,
+      DENSITY_DISSIPATION: 3.5,
+      VELOCITY_DISSIPATION: 2,
+      PRESSURE: 0.1,
+      PRESSURE_ITERATIONS: 20,
+      CURL: 3,
+      SPLAT_RADIUS: 0.2,
+      SPLAT_FORCE: 6000,
+      SHADING: true,
+      COLOR_UPDATE_SPEED: 10,
+      TRANSPARENT: true
+    });
+    splashCursor.init();
+  }
 }
 
 function handleRibbonMouseMove(e) {
@@ -1370,6 +1394,12 @@ function stopRibbonTrail() {
     ribbonTrail = null;
   }
   document.removeEventListener('mousemove', handleRibbonMouseMove);
+  
+  // Destroy splash cursor WebGL effect
+  if (splashCursor) {
+    splashCursor.destroy();
+    splashCursor = null;
+  }
 }
 
 // Color Filter Functions
