@@ -36,23 +36,43 @@ function injectStyles() {
     }
     
     .${HIGHLIGHT_CLASS}.persistent-highlighter-blink {
-      animation: phBlink 0.4s ease-in-out 5;
+      animation: phBlinkPing 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 4;
       position: relative;
       z-index: 2147483646;
     }
-    @keyframes phBlink {
-      0%, 100% { 
-        filter: brightness(1); 
-        box-shadow: 0 0 0 0 var(--highlight-color);
+    @keyframes phBlinkPing {
+      0% { 
+        filter: brightness(1) saturate(1); 
+        box-shadow: 
+          0 0 0 0 var(--highlight-color),
+          0 0 0 0 rgba(255, 255, 255, 0.5);
+        transform: scale(1);
       }
-      50% { 
-        filter: brightness(1.5); 
-        box-shadow: 0 0 16px 6px var(--highlight-color);
-        transform: scale(1.02);
+      30% { 
+        filter: brightness(1.8) saturate(1.5); 
+        box-shadow: 
+          0 0 30px 12px var(--highlight-color),
+          0 0 60px 20px rgba(255, 255, 255, 0.4),
+          inset 0 0 20px rgba(255, 255, 255, 0.5);
+        transform: scale(1.08);
+      }
+      60% { 
+        filter: brightness(1.4) saturate(1.3); 
+        box-shadow: 
+          0 0 20px 8px var(--highlight-color),
+          0 0 40px 15px rgba(255, 255, 255, 0.3);
+        transform: scale(1.04);
+      }
+      100% { 
+        filter: brightness(1) saturate(1); 
+        box-shadow: 
+          0 0 0 0 var(--highlight-color),
+          0 0 0 0 rgba(255, 255, 255, 0);
+        transform: scale(1);
       }
     }
     
-    /* Wave highlight animation */
+    /* Animation 1: Wave */
     .${HIGHLIGHT_CLASS}.persistent-highlighter-wave {
       animation: phWave 0.8s cubic-bezier(0.4, 0, 0.2, 1) forwards;
       position: relative;
@@ -94,6 +114,320 @@ function injectStyles() {
         box-shadow: 0 0 0 0 var(--highlight-color);
         transform: scale(1) translateY(0);
       }
+    }
+    
+    /* Animation 2: Bounce */
+    .${HIGHLIGHT_CLASS}.persistent-highlighter-bounce {
+      animation: phBounce 0.9s cubic-bezier(0.68, -0.55, 0.265, 1.55) forwards;
+      position: relative;
+      z-index: 2147483646;
+    }
+    @keyframes phBounce {
+      0% { 
+        transform: scale(0.3) translateY(30px) rotate(-10deg);
+        opacity: 0;
+        filter: brightness(2);
+        box-shadow: 0 20px 40px 10px var(--highlight-color);
+      }
+      25% {
+        transform: scale(1.3) translateY(-10px) rotate(5deg);
+        opacity: 1;
+        filter: brightness(1.8);
+        box-shadow: 0 10px 30px 8px var(--highlight-color);
+      }
+      50% {
+        transform: scale(0.9) translateY(5px) rotate(-3deg);
+        filter: brightness(1.2);
+        box-shadow: 0 5px 15px 4px var(--highlight-color);
+      }
+      65% {
+        transform: scale(1.1) translateY(-3px) rotate(2deg);
+        filter: brightness(1.5);
+        box-shadow: 0 8px 20px 6px var(--highlight-color);
+      }
+      80% {
+        transform: scale(0.95) translateY(2px) rotate(-1deg);
+        filter: brightness(1.1);
+        box-shadow: 0 3px 10px 3px var(--highlight-color);
+      }
+      100% { 
+        transform: scale(1) translateY(0) rotate(0);
+        opacity: 1;
+        filter: brightness(1);
+        box-shadow: 0 0 0 0 var(--highlight-color);
+      }
+    }
+    
+    /* Animation 3: Spiral */
+    .${HIGHLIGHT_CLASS}.persistent-highlighter-spiral {
+      animation: phSpiral 1s ease-out forwards;
+      position: relative;
+      z-index: 2147483646;
+    }
+    @keyframes phSpiral {
+      0% { 
+        transform: scale(0) rotate(-360deg) translateX(-50px);
+        opacity: 0;
+        filter: brightness(3) hue-rotate(180deg);
+        box-shadow: 0 0 50px 15px var(--highlight-color);
+      }
+      40% {
+        transform: scale(1.4) rotate(-100deg) translateX(10px);
+        opacity: 1;
+        filter: brightness(2) hue-rotate(90deg);
+        box-shadow: 0 0 30px 10px var(--highlight-color);
+      }
+      70% {
+        transform: scale(0.85) rotate(20deg) translateX(-5px);
+        filter: brightness(1.3) hue-rotate(20deg);
+        box-shadow: 0 0 15px 5px var(--highlight-color);
+      }
+      100% { 
+        transform: scale(1) rotate(0) translateX(0);
+        opacity: 1;
+        filter: brightness(1) hue-rotate(0);
+        box-shadow: 0 0 0 0 var(--highlight-color);
+      }
+    }
+    
+    /* Animation 4: Elastic Pop */
+    .${HIGHLIGHT_CLASS}.persistent-highlighter-elastic {
+      animation: phElastic 1.2s cubic-bezier(0.68, -0.6, 0.32, 1.6) forwards;
+      position: relative;
+      z-index: 2147483646;
+    }
+    @keyframes phElastic {
+      0% { 
+        transform: scale(0.1) rotateX(90deg);
+        opacity: 0;
+        filter: brightness(2.5);
+        box-shadow: 0 0 60px 20px var(--highlight-color);
+      }
+      30% {
+        transform: scale(1.5) rotateX(-10deg);
+        opacity: 1;
+        filter: brightness(2);
+        box-shadow: 0 0 40px 15px var(--highlight-color);
+      }
+      50% {
+        transform: scale(0.7) rotateX(5deg);
+        filter: brightness(1.3);
+        box-shadow: 0 0 20px 8px var(--highlight-color);
+      }
+      70% {
+        transform: scale(1.2) rotateX(-3deg);
+        filter: brightness(1.7);
+        box-shadow: 0 0 30px 10px var(--highlight-color);
+      }
+      85% {
+        transform: scale(0.9) rotateX(1deg);
+        filter: brightness(1.1);
+        box-shadow: 0 0 10px 4px var(--highlight-color);
+      }
+      100% { 
+        transform: scale(1) rotateX(0);
+        opacity: 1;
+        filter: brightness(1);
+        box-shadow: 0 0 0 0 var(--highlight-color);
+      }
+    }
+    
+    /* Animation 5: Zigzag Slide */
+    .${HIGHLIGHT_CLASS}.persistent-highlighter-zigzag {
+      animation: phZigzag 0.9s ease-out forwards;
+      position: relative;
+      z-index: 2147483646;
+    }
+    @keyframes phZigzag {
+      0% { 
+        transform: translateX(-100px) translateY(-20px) rotate(-20deg) scale(0.5);
+        opacity: 0;
+        filter: brightness(2);
+        box-shadow: 0 0 30px 10px var(--highlight-color);
+      }
+      20% {
+        transform: translateX(30px) translateY(10px) rotate(10deg) scale(1.2);
+        opacity: 1;
+        filter: brightness(1.8);
+        box-shadow: 0 0 25px 8px var(--highlight-color);
+      }
+      40% {
+        transform: translateX(-15px) translateY(-5px) rotate(-5deg) scale(0.9);
+        filter: brightness(1.3);
+        box-shadow: 0 0 15px 5px var(--highlight-color);
+      }
+      60% {
+        transform: translateX(8px) translateY(3px) rotate(3deg) scale(1.1);
+        filter: brightness(1.5);
+        box-shadow: 0 0 20px 7px var(--highlight-color);
+      }
+      80% {
+        transform: translateX(-3px) translateY(-1px) rotate(-1deg) scale(0.95);
+        filter: brightness(1.1);
+        box-shadow: 0 0 8px 3px var(--highlight-color);
+      }
+      100% { 
+        transform: translateX(0) translateY(0) rotate(0) scale(1);
+        opacity: 1;
+        filter: brightness(1);
+        box-shadow: 0 0 0 0 var(--highlight-color);
+      }
+    }
+    
+    /* Animation 6: Explode */
+    .${HIGHLIGHT_CLASS}.persistent-highlighter-explode {
+      animation: phExplode 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+      position: relative;
+      z-index: 2147483646;
+    }
+    @keyframes phExplode {
+      0% { 
+        transform: scale(2) rotate(180deg);
+        opacity: 0;
+        filter: brightness(3) blur(5px);
+        box-shadow: 0 0 80px 30px var(--highlight-color);
+      }
+      30% {
+        transform: scale(0.5) rotate(-90deg);
+        opacity: 1;
+        filter: brightness(2) blur(2px);
+        box-shadow: 0 0 50px 20px var(--highlight-color);
+      }
+      60% {
+        transform: scale(1.3) rotate(10deg);
+        filter: brightness(1.6) blur(0);
+        box-shadow: 0 0 25px 10px var(--highlight-color);
+      }
+      80% {
+        transform: scale(0.9) rotate(-5deg);
+        filter: brightness(1.2);
+        box-shadow: 0 0 12px 5px var(--highlight-color);
+      }
+      100% { 
+        transform: scale(1) rotate(0);
+        opacity: 1;
+        filter: brightness(1) blur(0);
+        box-shadow: 0 0 0 0 var(--highlight-color);
+      }
+    }
+    
+    /* Animation 7: Glitch */
+    .${HIGHLIGHT_CLASS}.persistent-highlighter-glitch {
+      animation: phGlitch 0.7s steps(5, end) forwards;
+      position: relative;
+      z-index: 2147483646;
+    }
+    @keyframes phGlitch {
+      0% { 
+        transform: translate(-10px, 5px) skewX(20deg);
+        opacity: 0;
+        filter: brightness(2) hue-rotate(90deg);
+        box-shadow: -10px 0 20px var(--highlight-color), 10px 0 20px var(--highlight-color);
+      }
+      14% {
+        transform: translate(8px, -3px) skewX(-15deg);
+        opacity: 0.7;
+        filter: brightness(2.5) hue-rotate(180deg);
+        box-shadow: -15px 0 25px var(--highlight-color), 15px 0 25px var(--highlight-color);
+      }
+      28% {
+        transform: translate(-6px, 4px) skewX(10deg);
+        opacity: 1;
+        filter: brightness(1.8) hue-rotate(-90deg);
+        box-shadow: -8px 0 15px var(--highlight-color), 8px 0 15px var(--highlight-color);
+      }
+      42% {
+        transform: translate(4px, -2px) skewX(-8deg);
+        filter: brightness(2) hue-rotate(45deg);
+        box-shadow: -12px 0 20px var(--highlight-color), 12px 0 20px var(--highlight-color);
+      }
+      56% {
+        transform: translate(-3px, 2px) skewX(5deg);
+        filter: brightness(1.5) hue-rotate(-45deg);
+        box-shadow: -5px 0 10px var(--highlight-color), 5px 0 10px var(--highlight-color);
+      }
+      70% {
+        transform: translate(2px, -1px) skewX(-3deg);
+        filter: brightness(1.3);
+        box-shadow: -3px 0 8px var(--highlight-color), 3px 0 8px var(--highlight-color);
+      }
+      85% {
+        transform: translate(-1px, 1px) skewX(2deg);
+        filter: brightness(1.1);
+        box-shadow: -2px 0 5px var(--highlight-color), 2px 0 5px var(--highlight-color);
+      }
+      100% { 
+        transform: translate(0, 0) skewX(0);
+        opacity: 1;
+        filter: brightness(1);
+        box-shadow: 0 0 0 0 var(--highlight-color);
+      }
+    }
+    
+    /* Animation 8: Rainbow Pulse */
+    .${HIGHLIGHT_CLASS}.persistent-highlighter-rainbow {
+      animation: phRainbow 1s ease-in-out forwards;
+      position: relative;
+      z-index: 2147483646;
+    }
+    @keyframes phRainbow {
+      0% { 
+        transform: scale(0.8);
+        filter: brightness(2) hue-rotate(0deg) saturate(2);
+        box-shadow: 0 0 40px 15px var(--highlight-color);
+      }
+      12.5% {
+        filter: brightness(2.2) hue-rotate(45deg) saturate(2.5);
+        box-shadow: 0 0 45px 18px var(--highlight-color);
+      }
+      25% {
+        transform: scale(1.15);
+        filter: brightness(2) hue-rotate(90deg) saturate(2);
+        box-shadow: 0 0 50px 20px var(--highlight-color);
+      }
+      37.5% {
+        filter: brightness(2.2) hue-rotate(135deg) saturate(2.5);
+        box-shadow: 0 0 45px 18px var(--highlight-color);
+      }
+      50% {
+        transform: scale(0.9);
+        filter: brightness(2) hue-rotate(180deg) saturate(2);
+        box-shadow: 0 0 40px 15px var(--highlight-color);
+      }
+      62.5% {
+        filter: brightness(2.2) hue-rotate(225deg) saturate(2.5);
+        box-shadow: 0 0 35px 12px var(--highlight-color);
+      }
+      75% {
+        transform: scale(1.05);
+        filter: brightness(1.8) hue-rotate(270deg) saturate(1.8);
+        box-shadow: 0 0 30px 10px var(--highlight-color);
+      }
+      87.5% {
+        filter: brightness(1.5) hue-rotate(315deg) saturate(1.5);
+        box-shadow: 0 0 20px 7px var(--highlight-color);
+      }
+      100% { 
+        transform: scale(1);
+        filter: brightness(1) hue-rotate(360deg) saturate(1);
+        box-shadow: 0 0 0 0 var(--highlight-color);
+      }
+    }
+    
+    /* Color cycling animation (applied before final color) */
+    .${HIGHLIGHT_CLASS}.persistent-highlighter-color-cycle {
+      animation: phColorCycle 3s linear forwards;
+      position: relative;
+      z-index: 2147483646;
+    }
+    @keyframes phColorCycle {
+      0% { filter: hue-rotate(0deg) saturate(1.5); }
+      16.66% { filter: hue-rotate(60deg) saturate(1.5); }
+      33.33% { filter: hue-rotate(120deg) saturate(1.5); }
+      50% { filter: hue-rotate(180deg) saturate(1.5); }
+      66.66% { filter: hue-rotate(240deg) saturate(1.5); }
+      83.33% { filter: hue-rotate(300deg) saturate(1.5); }
+      100% { filter: hue-rotate(360deg) saturate(1); }
     }
     
     /* +1 Notification */
@@ -284,12 +618,23 @@ function getTextNodesInRange(range) {
   
   // If containers are not text nodes, find the actual text nodes
   if (startContainer.nodeType !== Node.TEXT_NODE) {
-    // Try to find the text node at the offset
-    if (startContainer.childNodes[startOffset] && startContainer.childNodes[startOffset].nodeType === Node.TEXT_NODE) {
-      startContainer = startContainer.childNodes[startOffset];
+    // If startOffset points to a child node, find the first text node in/after it
+    if (startContainer.childNodes[startOffset]) {
+      const childAtOffset = startContainer.childNodes[startOffset];
+      if (childAtOffset.nodeType === Node.TEXT_NODE) {
+        startContainer = childAtOffset;
       startOffset = 0;
     } else {
-      // Walk through to find the text node
+        // Find the first text node in this element
+        const walker = document.createTreeWalker(childAtOffset, NodeFilter.SHOW_TEXT, null);
+        const firstTextNode = walker.nextNode();
+        if (firstTextNode) {
+          startContainer = firstTextNode;
+          startOffset = 0;
+        }
+      }
+    } else {
+      // Fallback: walk through and count characters
       const walker = document.createTreeWalker(startContainer, NodeFilter.SHOW_TEXT, null);
       let node = walker.nextNode();
       let charCount = 0;
@@ -307,10 +652,30 @@ function getTextNodesInRange(range) {
   }
   
   if (endContainer.nodeType !== Node.TEXT_NODE) {
-    if (endContainer.childNodes[endOffset] && endContainer.childNodes[endOffset].nodeType === Node.TEXT_NODE) {
-      endContainer = endContainer.childNodes[endOffset];
-      endOffset = 0;
+    // If endOffset points to a child node, we need to find the text node BEFORE it
+    // because the range ends before that child node, not at its start
+    if (endOffset > 0 && endContainer.childNodes[endOffset - 1]) {
+      // Find the last text node in the previous child
+      const prevChild = endContainer.childNodes[endOffset - 1];
+      if (prevChild.nodeType === Node.TEXT_NODE) {
+        endContainer = prevChild;
+        endOffset = prevChild.textContent.length;
     } else {
+        // Walk to find the last text node in this element
+        const walker = document.createTreeWalker(prevChild, NodeFilter.SHOW_TEXT, null);
+        let lastTextNode = null;
+        let node = walker.nextNode();
+        while (node) {
+          lastTextNode = node;
+          node = walker.nextNode();
+        }
+        if (lastTextNode) {
+          endContainer = lastTextNode;
+          endOffset = lastTextNode.textContent.length;
+        }
+      }
+    } else {
+      // Fallback: walk through and count characters
       const walker = document.createTreeWalker(endContainer, NodeFilter.SHOW_TEXT, null);
       let node = walker.nextNode();
       let charCount = 0;
@@ -367,7 +732,7 @@ function getTextNodesInRange(range) {
   return textNodes;
 }
 
-function highlightRange(range, id, color) {
+function highlightRange(range, id, color, isNew = false) {
   // Clone range to avoid modifying the original selection
   const clonedRange = range.cloneRange();
   const textNodeData = getTextNodesInRange(clonedRange);
@@ -446,25 +811,25 @@ function highlightRange(range, id, color) {
       // ONLY highlight words - NEVER highlight any whitespace (single space, multiple spaces, newlines, etc.)
       if (isWord) {
         // Highlight the word only
-        const span = document.createElement('span');
-        span.className = HIGHLIGHT_CLASS;
-        span.dataset.highlightId = id;
-        span.style.setProperty('--highlight-color', color);
-        
-        // Apply semi-transparent background
-        if (color.startsWith('#')) {
-          const r = parseInt(color.slice(1, 3), 16);
-          const g = parseInt(color.slice(3, 5), 16);
-          const b = parseInt(color.slice(5, 7), 16);
-          span.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.4)`;
-        } else {
-          span.style.backgroundColor = color;
-        }
-        
-        // Set text color for contrast
-        const textColor = getContrastTextColor(color);
-        span.style.setProperty('--highlight-text-color', textColor);
-        
+    const span = document.createElement('span');
+    span.className = HIGHLIGHT_CLASS;
+    span.dataset.highlightId = id;
+    span.style.setProperty('--highlight-color', color);
+    
+    // Apply semi-transparent background
+    if (color.startsWith('#')) {
+      const r = parseInt(color.slice(1, 3), 16);
+      const g = parseInt(color.slice(3, 5), 16);
+      const b = parseInt(color.slice(5, 7), 16);
+      span.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.4)`;
+    } else {
+      span.style.backgroundColor = color;
+    }
+    
+    // Set text color for contrast
+    const textColor = getContrastTextColor(color);
+    span.style.setProperty('--highlight-text-color', textColor);
+
         span.textContent = part;
         fragment.appendChild(span);
         spans.push(span);
@@ -505,26 +870,50 @@ function highlightRange(range, id, color) {
     parent.replaceChild(fragment, targetNode);
    });
  
-   // Apply wave animation to all spans
-   if (spans.length > 0) {
-     // Add wave animation with staggered delay
-     spans.forEach((span, index) => {
-       span.classList.add('persistent-highlighter-wave');
-       span.style.animationDelay = `${index * 0.05}s`; // Stagger by 50ms
-       
-       // Remove wave class after animation
-       setTimeout(() => {
-         span.classList.remove('persistent-highlighter-wave');
-         span.style.animationDelay = '';
-       }, 800 + (index * 50));
-     });
-     
-     // Show +1 notification near the first span
-     showPlusOneNotification(spans[0]);
-   }
- 
-   return spans;
- }
+  // Apply random animation to all spans (only for newly created highlights)
+  if (isNew && spans.length > 0) {
+    // Available animation styles
+    const animations = [
+      { class: 'persistent-highlighter-wave', duration: 800 },
+      { class: 'persistent-highlighter-bounce', duration: 900 },
+      { class: 'persistent-highlighter-spiral', duration: 1000 },
+      { class: 'persistent-highlighter-elastic', duration: 1200 },
+      { class: 'persistent-highlighter-zigzag', duration: 900 },
+      { class: 'persistent-highlighter-explode', duration: 800 },
+      { class: 'persistent-highlighter-glitch', duration: 700 },
+      { class: 'persistent-highlighter-rainbow', duration: 1000 }
+    ];
+    
+    // Randomly select one animation for this highlight
+    const selectedAnimation = animations[Math.floor(Math.random() * animations.length)];
+    
+    // Add animation with staggered delay
+    spans.forEach((span, index) => {
+      // Apply the selected movement animation
+      span.classList.add(selectedAnimation.class);
+      span.style.animationDelay = `${index * 0.05}s`; // Stagger by 50ms
+      
+      // Also apply color cycle animation (runs for 3 seconds)
+      span.classList.add('persistent-highlighter-color-cycle');
+      
+      // Remove movement animation class after it completes
+      setTimeout(() => {
+        span.classList.remove(selectedAnimation.class);
+        span.style.animationDelay = '';
+      }, selectedAnimation.duration + (index * 50));
+      
+      // Remove color cycle animation after 3 seconds
+      setTimeout(() => {
+        span.classList.remove('persistent-highlighter-color-cycle');
+      }, 3000);
+    });
+    
+    // Show +1 notification near the first span
+    showPlusOneNotification(spans[0]);
+    }
+
+  return spans;
+}
  
  function showPlusOneNotification(element) {
    const rect = element.getBoundingClientRect();
@@ -551,21 +940,70 @@ function highlightRange(range, id, color) {
      timestamp: Date.now()
    });
  }
- 
- function applyHighlightFromData(data) {
+
+function applyHighlightFromData(data) {
+  // Validate data
+  if (!data || !data.range || !data.id) {
+    console.warn('Invalid highlight data:', data);
+    return;
+  }
+
   const startNode = getNodeFromXPath(data.range.startXPath);
   const endNode = getNodeFromXPath(data.range.endXPath);
 
-  if (!startNode || !endNode) return;
+  if (!startNode || !endNode) {
+    console.warn('Could not find nodes for highlight:', {
+      id: data.id,
+      text: data.text?.substring(0, 50)
+    });
+    return;
+  }
+
+  // Validate offsets
+  const startLength = startNode.nodeType === Node.TEXT_NODE ? startNode.length : startNode.childNodes.length;
+  const endLength = endNode.nodeType === Node.TEXT_NODE ? endNode.length : endNode.childNodes.length;
+
+  if (data.range.startOffset > startLength) {
+    console.warn('Invalid start offset:', {
+      id: data.id,
+      offset: data.range.startOffset,
+      maxLength: startLength
+    });
+    return;
+  }
+
+  if (data.range.endOffset > endLength) {
+    console.warn('Invalid end offset:', {
+      id: data.id,
+      offset: data.range.endOffset,
+      maxLength: endLength
+    });
+    return;
+  }
 
   const range = document.createRange();
   try {
-    range.setStart(startNode, data.range.startOffset);
-    range.setEnd(endNode, data.range.endOffset);
+    range.setStart(startNode, Math.min(data.range.startOffset, startLength));
+    range.setEnd(endNode, Math.min(data.range.endOffset, endLength));
+    
+    // Validate range is not collapsed
+    if (range.collapsed) {
+      console.warn('Range is collapsed, skipping highlight:', data.id);
+      return;
+    }
+    
     const color = data.color || DEFAULT_COLOR;
     highlightRange(range, data.id, color);
   } catch (e) {
-    console.warn('Failed to restore highlight:', e);
+    console.warn('Failed to restore highlight:', {
+      id: data.id,
+      text: data.text?.substring(0, 50),
+      error: e.message || e.toString(),
+      startXPath: data.range.startXPath,
+      endXPath: data.range.endXPath,
+      startOffset: data.range.startOffset,
+      endOffset: data.range.endOffset
+    });
   }
 }
 
@@ -931,7 +1369,7 @@ async function createHighlight(color, colorName = 'yellow') {
   const serialized = serializeRange(range);
 
   // Optimistic UI update (modifies DOM)
-  highlightRange(range, id, color);
+  highlightRange(range, id, color, true); // true = new highlight, apply animations
   selection.removeAllRanges();
   hideTooltip();
 
@@ -1139,7 +1577,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         // Remove blink class after animation
         setTimeout(() => {
           elements.forEach(el => el.classList.remove('persistent-highlighter-blink'));
-        }, 2000); // 5 blinks * 400ms = 2000ms
+        }, 2400); // 4 blinks * 600ms = 2400ms
         
         return true;
       } else if (retries < 50) {

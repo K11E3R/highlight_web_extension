@@ -228,16 +228,16 @@ function switchView(view) {
   
   // Wait for exit animation, then switch
   setTimeout(() => {
-    state.view = view;
-    if (elements.viewPageBtn) {
-      elements.viewPageBtn.classList.toggle('active', view === 'page');
-    }
-    if (elements.viewAllBtn) {
-      elements.viewAllBtn.classList.toggle('active', view === 'all');
-    }
+  state.view = view;
+  if (elements.viewPageBtn) {
+    elements.viewPageBtn.classList.toggle('active', view === 'page');
+  }
+  if (elements.viewAllBtn) {
+    elements.viewAllBtn.classList.toggle('active', view === 'all');
+  }
     
     // Load highlights (will trigger entrance animation)
-    loadHighlights();
+  loadHighlights();
     
     // Remove switching class after a brief delay
     setTimeout(() => {
@@ -344,48 +344,101 @@ function render() {
 function createCard(highlight) {
   const div = document.createElement('div');
   div.className = 'highlight-card';
-  div.style.cursor = 'pointer'; // Make it clear the card is clickable
   div.title = 'Click to view and blink this highlight';
 
-  const sourceUrlHtml = state.view === 'all' && highlight.sourceUrl
-    ? `<div class="source-url" title="${escapeHtml(highlight.sourceUrl)}">${escapeHtml(new URL(highlight.sourceUrl).hostname)}</div>`
-    : '';
+  // Get color name for display
+  const colorName = highlight.colorName || getColorNameFromHex(highlight.color);
+  const accentColor = highlight.color || '#ffd43b';
+  
+  // Set custom property for card accent color
+  div.style.setProperty('--card-accent-color', accentColor);
+
+  // Format timestamp
+  const timestamp = highlight.createdAt ? formatTimestamp(highlight.createdAt) : 'Recently';
+  
+  // Get page info for 'all' view
+  let pageInfoHtml = '';
+  if (state.view === 'all' && highlight.sourceUrl) {
+    try {
+      const urlObj = new URL(highlight.sourceUrl);
+      const hostname = urlObj.hostname;
+      const pageTitle = highlight.title || hostname;
+      pageInfoHtml = `
+        <div class="page-info" title="${escapeHtml(highlight.sourceUrl)}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+          <span class="page-hostname">${escapeHtml(hostname)}</span>
+        </div>
+      `;
+    } catch (e) {
+      pageInfoHtml = '';
+    }
+  }
 
   const highlightText = highlight.text ? escapeHtml(highlight.text.trim()) : 'No text captured';
   const noteText = highlight.note ? escapeHtml(highlight.note) : '';
   const categoryValue = highlight.category || 'uncategorized';
 
-  // Build category options
-  let categoryOptions = '<option value="uncategorized">Uncategorized</option>';
-  state.categories.forEach(cat => {
-    const selected = cat === categoryValue ? 'selected' : '';
-    categoryOptions += `<option value="${escapeHtml(cat)}" ${selected}>${escapeHtml(cat)}</option>`;
-  });
+  // Word count
+  const wordCount = highlightText.split(/\s+/).filter(w => w.length > 0).length;
+
+  // Create category options HTML
+  const categoryOptionsHtml = ['uncategorized', ...state.categories]
+    .map(cat => {
+      const displayName = cat === 'uncategorized' ? 'Uncategorized' : cat;
+      const isSelected = cat === categoryValue ? 'selected' : '';
+      return `<option value="${escapeHtml(cat)}" ${isSelected}>${escapeHtml(displayName)}</option>`;
+    })
+    .join('');
 
   div.innerHTML = `
-    ${sourceUrlHtml}
-    <select class="highlight-category-select" data-highlight-id="${escapeHtml(highlight.id)}">
-      ${categoryOptions}
-    </select>
-    <div class="card-header">
-      <div class="color-indicator" style="background-color: ${escapeHtml(highlight.color || '#FFEB3B')}"></div>
+    <div class="card-top">
+      <div class="card-meta">
+        <div class="color-badge" style="background-color: ${escapeHtml(accentColor)};" title="${escapeHtml(colorName)}"></div>
+        <div class="card-timestamp">${escapeHtml(timestamp)}</div>
+        ${pageInfoHtml}
+      </div>
+      <select class="highlight-category-select" data-highlight-id="${highlight.id}" title="Change category">
+        ${categoryOptionsHtml}
+      </select>
+    </div>
+    
+    <div class="highlight-text" title="${highlightText}">${highlightText}</div>
+    
+    <div class="card-footer">
+      <div class="card-info-left">
+        <span class="word-count">${wordCount} word${wordCount !== 1 ? 's' : ''}</span>
+      </div>
       <div class="card-actions">
-        <button class="icon-btn-small locate-btn" title="Scroll to highlight">
+        <button class="card-action-btn locate-btn" title="View on page">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
           </svg>
         </button>
-        <button class="icon-btn-small delete-btn" title="Delete highlight">
+        <button class="card-action-btn delete-btn" title="Delete">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 6L6 18M6 6l12 12"/>
+            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/>
+            <path d="M10 11v6M14 11v6"/>
           </svg>
         </button>
       </div>
     </div>
-    <div class="highlight-text">${highlightText}</div>
-    <textarea class="note-area" placeholder="Add a note...">${noteText}</textarea>
   `;
+
+  // Spotlight effect - track mouse movement
+  div.addEventListener('mousemove', (e) => {
+    const rect = div.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    div.style.setProperty('--mouse-x', `${x}px`);
+    div.style.setProperty('--mouse-y', `${y}px`);
+    // Use card accent color with low opacity for spotlight
+    const accentColorWithAlpha = accentColor + '20'; // Add alpha in hex
+    div.style.setProperty('--spotlight-color', hexToRgba(accentColor, 0.12));
+  });
 
   // Card click - open and blink highlight
   div.onclick = (e) => {
@@ -428,32 +481,147 @@ function createCard(highlight) {
     }
   };
 
-  const noteArea = div.querySelector('.note-area');
-  noteArea.onclick = (e) => e.stopPropagation();
-  noteArea.onchange = (e) => updateNote(highlight.id, e.target.value, highlight.sourceUrl || state.currentUrl);
-
-  // Category selector
+  // Category selector change event
   const categorySelect = div.querySelector('.highlight-category-select');
-  categorySelect.onclick = (e) => e.stopPropagation();
-  categorySelect.onchange = (e) => {
-    e.stopPropagation();
-    updateCategory(highlight.id, e.target.value, highlight.sourceUrl || state.currentUrl);
-  };
-
-  // Click card to scroll (fallback)
-  div.onclick = () => {
-    if (state.view === 'all' && highlight.sourceUrl && highlight.sourceUrl !== state.currentUrl) {
-      chrome.runtime.sendMessage({
-        type: 'OPEN_AND_FOCUS_HIGHLIGHT',
-        url: highlight.sourceUrl,
-        id: highlight.id
-      });
-    } else {
-      scrollToHighlight(highlight.id);
-    }
-  };
+  if (categorySelect) {
+    categorySelect.onclick = (e) => {
+      e.stopPropagation(); // Prevent card click
+    };
+    
+    categorySelect.onchange = async (e) => {
+      e.stopPropagation();
+      const newCategory = e.target.value;
+      
+      // Show loading state
+      categorySelect.disabled = true;
+      categorySelect.style.opacity = '0.6';
+      
+      try {
+        // Update highlight category via background script
+        const targetUrl = highlight.sourceUrl || state.currentUrl;
+        
+        // Create updated highlight object
+        const updatedHighlight = {
+          id: highlight.id,
+          category: newCategory
+        };
+        
+        // Send update request to background script
+        const response = await chrome.runtime.sendMessage({
+          type: 'UPDATE_HIGHLIGHT',
+          url: targetUrl,
+          highlight: updatedHighlight
+        });
+        
+        if (response && response.success) {
+          // Success feedback animation
+          categorySelect.style.transform = 'scale(1.15)';
+          categorySelect.style.background = 'linear-gradient(135deg, rgba(81, 207, 102, 0.9), rgba(81, 207, 102, 0.7))';
+          categorySelect.style.borderColor = 'rgba(81, 207, 102, 0.8)';
+          categorySelect.style.boxShadow = '0 0 0 4px rgba(81, 207, 102, 0.2), 0 4px 16px rgba(81, 207, 102, 0.3)';
+          categorySelect.style.color = 'white';
+          
+          setTimeout(async () => {
+            // Reset styles
+            categorySelect.style.transform = '';
+            categorySelect.style.background = '';
+            categorySelect.style.borderColor = '';
+            categorySelect.style.boxShadow = '';
+            categorySelect.style.color = '';
+            categorySelect.disabled = false;
+            categorySelect.style.opacity = '';
+            
+            // Reload highlights from background to ensure data consistency
+            await loadHighlights();
+          }, 400);
+        } else {
+          // Error feedback
+          categorySelect.style.borderColor = 'rgba(255, 107, 107, 0.8)';
+          categorySelect.style.boxShadow = '0 0 0 4px rgba(255, 107, 107, 0.2)';
+          
+          setTimeout(() => {
+            categorySelect.style.borderColor = '';
+            categorySelect.style.boxShadow = '';
+            categorySelect.disabled = false;
+            categorySelect.style.opacity = '';
+            
+            // Revert to old value
+            categorySelect.value = highlight.category || 'uncategorized';
+          }, 500);
+          
+          console.error('Failed to update category:', response?.error);
+        }
+      } catch (error) {
+        console.error('Error updating category:', error);
+        
+        // Error feedback
+        categorySelect.style.borderColor = 'rgba(255, 107, 107, 0.8)';
+        categorySelect.style.boxShadow = '0 0 0 4px rgba(255, 107, 107, 0.2)';
+        
+        setTimeout(() => {
+          categorySelect.style.borderColor = '';
+          categorySelect.style.boxShadow = '';
+          categorySelect.disabled = false;
+          categorySelect.style.opacity = '';
+          
+          // Revert to old value
+          categorySelect.value = highlight.category || 'uncategorized';
+        }, 500);
+      }
+    };
+  }
 
   return div;
+}
+
+// Helper function to get color name from hex
+function getColorNameFromHex(hex) {
+  const colorMap = {
+    '#ffd43b': 'Yellow',
+    '#51cf66': 'Green',
+    '#4dabf7': 'Blue',
+    '#9775fa': 'Purple',
+    '#ff6ba7': 'Pink'
+  };
+  return colorMap[hex] || 'Custom';
+}
+
+// Helper function to convert hex color to rgba
+function hexToRgba(hex, alpha = 1) {
+  // Remove # if present
+  hex = hex.replace('#', '');
+  
+  // Parse hex values
+  const r = parseInt(hex.substring(0, 2), 16);
+  const g = parseInt(hex.substring(2, 4), 16);
+  const b = parseInt(hex.substring(4, 6), 16);
+  
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+// Helper function to format timestamp
+function formatTimestamp(timestamp) {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const diffMs = now - date;
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+  
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  
+  const month = date.toLocaleDateString('en-US', { month: 'short' });
+  const day = date.getDate();
+  const year = date.getFullYear();
+  const currentYear = now.getFullYear();
+  
+  if (year === currentYear) {
+    return `${month} ${day}`;
+  }
+  return `${month} ${day}, ${year}`;
 }
 
 async function deleteHighlight(id, url) {
@@ -573,9 +741,10 @@ function updateCategoryFilters() {
     allChip.className = 'category-chip' + (state.selectedCategory === 'all' ? ' active' : '');
     allChip.textContent = 'All';
     allChip.onclick = () => {
+      if (state.selectedCategory === 'all') return; // Already selected
       state.selectedCategory = 'all';
       updateCategoryFilters();
-      render();
+      animateColorFilterChange(); // Use same animation
     };
     chipsContainer.appendChild(allChip);
     
@@ -586,9 +755,10 @@ function updateCategoryFilters() {
       uncatChip.className = 'category-chip' + (state.selectedCategory === 'uncategorized' ? ' active' : '');
       uncatChip.textContent = 'Uncategorized';
       uncatChip.onclick = () => {
+        if (state.selectedCategory === 'uncategorized') return; // Already selected
         state.selectedCategory = 'uncategorized';
         updateCategoryFilters();
-        render();
+        animateColorFilterChange(); // Use same animation
       };
       chipsContainer.appendChild(uncatChip);
     }
@@ -599,9 +769,10 @@ function updateCategoryFilters() {
       chip.className = 'category-chip' + (state.selectedCategory === cat ? ' active' : '');
       chip.textContent = cat;
       chip.onclick = () => {
+        if (state.selectedCategory === cat) return; // Already selected
         state.selectedCategory = cat;
         updateCategoryFilters();
-        render();
+        animateColorFilterChange(); // Use same animation
       };
       chipsContainer.appendChild(chip);
     });
@@ -895,11 +1066,40 @@ async function handleImportFile(event) {
 
   try {
     const text = await file.text();
-    const importData = JSON.parse(text);
+    
+    // Parse JSON
+    let importData;
+    try {
+      importData = JSON.parse(text);
+    } catch (parseError) {
+      throw new Error('Invalid JSON file format');
+    }
 
-    // Validate import data
-    if (!importData.highlights || !Array.isArray(importData.highlights)) {
-      throw new Error('Invalid import file: missing highlights array');
+    // Validate import data structure
+    if (!importData || typeof importData !== 'object') {
+      throw new Error('Invalid import file: must be a JSON object');
+    }
+    
+    if (!importData.highlights) {
+      throw new Error('Invalid import file: missing "highlights" field');
+    }
+    
+    if (!Array.isArray(importData.highlights)) {
+      throw new Error('Invalid import file: "highlights" must be an array');
+    }
+    
+    if (importData.highlights.length === 0) {
+      throw new Error('Import file contains no highlights');
+    }
+
+    // Validate that highlights have required fields
+    const requiredFields = ['id', 'text', 'color'];
+    const invalidHighlights = importData.highlights.filter(h => 
+      !requiredFields.every(field => h.hasOwnProperty(field))
+    );
+    
+    if (invalidHighlights.length > 0) {
+      throw new Error(`Invalid highlight format: ${invalidHighlights.length} highlight(s) missing required fields (id, text, color)`);
     }
 
     // Store import data for modal
@@ -912,7 +1112,7 @@ async function handleImportFile(event) {
     openImportModal(file.name, importData);
   } catch (error) {
     console.error('Import file read failed:', error);
-    showNotification('Import failed: ' + error.message, 'error');
+    showNotification(error.message || 'Import failed', 'error');
     elements.importFileInput.value = '';
   }
 }
@@ -1114,57 +1314,14 @@ function toggleRibbonMode() {
 }
 
 function addRibbonsToCards() {
+  // Ribbon decorations disabled - only subtle glow effect remains in CSS
+  // No "NEW" badges or corner ribbons will be added
   const cards = document.querySelectorAll('.highlight-card');
-  cards.forEach((card, index) => {
-    // Add ribbon class
-    card.classList.add('has-ribbon');
-    
-    // Determine ribbon style based on index
-    const ribbonType = index % 4; // 4 different ribbon styles
-    
-    // Clear existing ribbons
-    card.querySelectorAll('.ribbon-corner, .ribbon-banner, .ribbon-wave, .ribbon-shimmer').forEach(el => el.remove());
-    
-    // Add appropriate ribbon elements
-    if (ribbonType === 0) {
-      // Corner ribbon
-      const corner = document.createElement('div');
-      corner.className = 'ribbon-corner';
-      card.appendChild(corner);
-      
-      const shimmer = document.createElement('div');
-      shimmer.className = 'ribbon-shimmer';
-      card.appendChild(shimmer);
-    } else if (ribbonType === 1) {
-      // Banner ribbon
-      const banner = document.createElement('div');
-      banner.className = 'ribbon-banner';
-      banner.textContent = 'NEW';
-      card.appendChild(banner);
-      
-      const wave = document.createElement('div');
-      wave.className = 'ribbon-wave';
-      card.appendChild(wave);
-    } else if (ribbonType === 2) {
-      // Corner + wave
-      const corner = document.createElement('div');
-      corner.className = 'ribbon-corner';
-      card.appendChild(corner);
-      
-      const wave = document.createElement('div');
-      wave.className = 'ribbon-wave';
-      card.appendChild(wave);
-    } else {
-      // Banner + shimmer
-      const banner = document.createElement('div');
-      banner.className = 'ribbon-banner';
-      banner.textContent = '★';
-      card.appendChild(banner);
-      
-      const shimmer = document.createElement('div');
-      shimmer.className = 'ribbon-shimmer';
-      card.appendChild(shimmer);
-    }
+  cards.forEach((card) => {
+    // Clear any existing ribbon elements
+    card.querySelectorAll('.ribbon-corner, .ribbon-banner, .ribbon-wave, .ribbon-shimmer, .ribbon-fold').forEach(el => el.remove());
+    // Don't add has-ribbon class to prevent visual decorations
+    card.classList.remove('has-ribbon');
   });
 }
 
@@ -1221,6 +1378,10 @@ function setupColorFilters() {
   colorChips.forEach(chip => {
     chip.addEventListener('click', () => {
       const color = chip.getAttribute('data-color');
+      
+      // If same color, do nothing
+      if (state.selectedColor === color) return;
+      
       state.selectedColor = color;
       
       // Update active state with smooth animation
@@ -1229,10 +1390,48 @@ function setupColorFilters() {
       });
       chip.classList.add('active');
       
-      // Re-render with filter
-      render();
+      // Animate cards out, then in with new filter
+      animateColorFilterChange();
     });
   });
+}
+
+function animateColorFilterChange() {
+  const cards = document.querySelectorAll('.highlight-card');
+  
+  if (cards.length === 0) {
+    render();
+    return;
+  }
+  
+  // Phase 1: Fade out all cards with stagger
+  cards.forEach((card, index) => {
+    card.style.animation = 'none';
+    setTimeout(() => {
+      card.style.animation = `cardFadeOut 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards`;
+      card.style.animationDelay = `${index * 0.02}s`;
+    }, 10);
+  });
+  
+  // Phase 2: After fade out, re-render with new filter and fade in
+  const totalFadeOutTime = (cards.length * 20) + 300; // stagger + animation duration
+  
+  setTimeout(() => {
+    render();
+    
+    // Fade in new cards with stagger
+    setTimeout(() => {
+      const newCards = document.querySelectorAll('.highlight-card');
+      newCards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.animation = 'none';
+        setTimeout(() => {
+          card.style.animation = `cardFadeIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`;
+          card.style.animationDelay = `${index * 0.04}s`;
+        }, 10);
+      });
+    }, 10);
+  }, totalFadeOutTime);
 }
 
 // Blur Text Animation for Title
@@ -1371,4 +1570,107 @@ function setupHoverToCharge() {
   }
 }
 
+// Drag-to-scroll functionality for highlights list
+function setupDragToScroll() {
+  const container = elements.list;
+  if (!container) return;
+
+  let isDown = false;
+  let startY = 0;
+  let scrollTop = 0;
+  let velocity = 0;
+  let rafId = null;
+
+  // Apply momentum scrolling
+  function applyMomentum() {
+    if (Math.abs(velocity) > 0.5) {
+      container.scrollTop += velocity;
+      velocity *= 0.95; // Friction
+      rafId = requestAnimationFrame(applyMomentum);
+    } else {
+      velocity = 0;
+      cancelAnimationFrame(rafId);
+    }
+  }
+
+  container.addEventListener('mousedown', (e) => {
+    // Don't interfere with interactive elements
+    if (e.target.closest('button') || e.target.closest('textarea') || e.target.closest('select') || e.target.closest('a')) {
+      return;
+    }
+
+    isDown = true;
+    startY = e.pageY - container.offsetTop;
+    scrollTop = container.scrollTop;
+    velocity = 0;
+    
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+    }
+
+    container.classList.add('dragging');
+    container.style.cursor = 'grabbing';
+    e.preventDefault();
+  });
+
+  container.addEventListener('mouseleave', () => {
+    if (isDown) {
+      isDown = false;
+      container.classList.remove('dragging');
+      container.style.cursor = '';
+      applyMomentum();
+    }
+  });
+
+  container.addEventListener('mouseup', () => {
+    if (isDown) {
+      isDown = false;
+      container.classList.remove('dragging');
+      container.style.cursor = '';
+      applyMomentum();
+    }
+  });
+
+  container.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    
+    e.preventDefault();
+    const y = e.pageY - container.offsetTop;
+    const walk = (y - startY) * 1.5; // Scroll speed multiplier
+    const newScrollTop = scrollTop - walk;
+    
+    velocity = container.scrollTop - newScrollTop;
+    container.scrollTop = newScrollTop;
+  });
+
+  // Touch support
+  let touchStartY = 0;
+  let touchScrollTop = 0;
+
+  container.addEventListener('touchstart', (e) => {
+    if (e.target.closest('button') || e.target.closest('textarea') || e.target.closest('select') || e.target.closest('a')) {
+      return;
+    }
+    
+    touchStartY = e.touches[0].pageY;
+    touchScrollTop = container.scrollTop;
+    velocity = 0;
+    
+    if (rafId) {
+      cancelAnimationFrame(rafId);
+    }
+  }, { passive: true });
+
+  container.addEventListener('touchmove', (e) => {
+    const y = e.touches[0].pageY;
+    const walk = (touchStartY - y) * 1.2;
+    container.scrollTop = touchScrollTop + walk;
+  }, { passive: true });
+
+  container.addEventListener('touchend', () => {
+    applyMomentum();
+  }, { passive: true });
+}
+
 document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', setupDragToScroll);
