@@ -44,12 +44,29 @@
             <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>
           </svg>
         </button>
-        <button id="manageCategoriesBtn" class="nav-item" data-tooltip="Categories" title="Categories" aria-label="Manage categories">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
-            <line x1="7" y1="7" x2="7.01" y2="7"/>
-          </svg>
-        </button>
+        <div class="nav-item-wrapper">
+          <button id="categoriesBtn" class="nav-item has-badge" data-tooltip="Categories" title="Categories" aria-label="View categories">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/>
+              <line x1="7" y1="7" x2="7.01" y2="7"/>
+            </svg>
+            <span class="nav-badge" id="categoryBadge">0</span>
+          </button>
+          
+          <!-- Category Dropdown -->
+          <div id="categoryDropdown" class="category-dropdown hidden">
+            <div class="dropdown-header">
+              <span>Categories</span>
+              <button id="addCategoryDropdownBtn" class="dropdown-add" title="Add category">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <line x1="12" y1="5" x2="12" y2="19"/>
+                  <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+              </button>
+            </div>
+            <div id="categoryDropdownList" class="dropdown-list"></div>
+          </div>
+        </div>
       </nav>
       
       <div class="sidebar-footer">

@@ -27,6 +27,13 @@ const elements = {
   importBtn: document.getElementById('importBtn'),
   importFileInput: document.getElementById('importFileInput'),
   categoryFilter: document.getElementById('categoryFilter'),
+  // Category dropdown
+  categoriesBtn: document.getElementById('categoriesBtn'),
+  categoryBadge: document.getElementById('categoryBadge'),
+  categoryDropdown: document.getElementById('categoryDropdown'),
+  categoryDropdownList: document.getElementById('categoryDropdownList'),
+  addCategoryDropdownBtn: document.getElementById('addCategoryDropdownBtn'),
+  // Category modal (for adding new)
   manageCategoriesBtn: document.getElementById('manageCategoriesBtn'),
   categoryModal: document.getElementById('categoryModal'),
   closeCategoryModal: document.getElementById('closeCategoryModal'),
@@ -213,6 +220,26 @@ async function init() {
   if (elements.importFileInput) {
     elements.importFileInput.addEventListener('change', handleImportFile);
   }
+  // Category dropdown
+  if (elements.categoriesBtn) {
+    elements.categoriesBtn.addEventListener('click', toggleCategoryDropdown);
+  }
+  if (elements.addCategoryDropdownBtn) {
+    elements.addCategoryDropdownBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      closeCategoryDropdown();
+      openCategoryModal();
+    });
+  }
+  // Close dropdown when clicking outside
+  document.addEventListener('click', (e) => {
+    if (elements.categoryDropdown && !elements.categoryDropdown.classList.contains('hidden')) {
+      if (!elements.categoryDropdown.contains(e.target) && !elements.categoriesBtn.contains(e.target)) {
+        closeCategoryDropdown();
+      }
+    }
+  });
+  
   if (elements.manageCategoriesBtn) {
     elements.manageCategoriesBtn.addEventListener('click', openCategoryModal);
   }
@@ -327,6 +354,8 @@ async function loadHighlights() {
     if (response && response.highlights) {
       state.highlights = response.highlights;
       render();
+      updateCategoryDropdown();
+      updateCategoryFilters();
     }
   } catch (e) {
     console.error('Failed to load highlights', e);
@@ -725,13 +754,100 @@ async function loadCategories() {
     if (response && response.categories) {
       state.categories = response.categories;
       updateCategoryFilters();
+      updateCategoryBadge();
+      updateCategoryDropdown();
     }
   } catch (e) {
     console.error('Failed to load categories', e);
   }
 }
 
+// Category Dropdown Functions
+function toggleCategoryDropdown() {
+  if (elements.categoryDropdown) {
+    const isHidden = elements.categoryDropdown.classList.contains('hidden');
+    if (isHidden) {
+      updateCategoryDropdown();
+      elements.categoryDropdown.classList.remove('hidden');
+      elements.categoriesBtn.classList.add('active');
+    } else {
+      closeCategoryDropdown();
+    }
+  }
+}
+
+function closeCategoryDropdown() {
+  if (elements.categoryDropdown) {
+    elements.categoryDropdown.classList.add('hidden');
+    elements.categoriesBtn?.classList.remove('active');
+  }
+}
+
+function updateCategoryBadge() {
+  if (elements.categoryBadge) {
+    const count = state.categories.length;
+    elements.categoryBadge.textContent = count;
+    elements.categoryBadge.setAttribute('data-count', count);
+  }
+}
+
+function updateCategoryDropdown() {
+  if (!elements.categoryDropdownList) return;
+  
+  elements.categoryDropdownList.innerHTML = '';
+  
+  // Add "All" option
+  const allCount = state.highlights.length;
+  const allItem = createDropdownItem('all', 'All Highlights', allCount);
+  elements.categoryDropdownList.appendChild(allItem);
+  
+  // Add "Uncategorized" option
+  const uncatCount = state.highlights.filter(h => !h.category || h.category === 'uncategorized').length;
+  if (uncatCount > 0) {
+    const uncatItem = createDropdownItem('uncategorized', 'Uncategorized', uncatCount);
+    elements.categoryDropdownList.appendChild(uncatItem);
+  }
+  
+  // Add categories
+  if (state.categories.length === 0 && uncatCount === 0 && allCount === 0) {
+    elements.categoryDropdownList.innerHTML = '<div class="dropdown-empty">No categories yet</div>';
+    return;
+  }
+  
+  state.categories.forEach(cat => {
+    const count = state.highlights.filter(h => h.category === cat).length;
+    const item = createDropdownItem(cat, cat, count);
+    elements.categoryDropdownList.appendChild(item);
+  });
+}
+
+function createDropdownItem(value, label, count) {
+  const item = document.createElement('button');
+  item.className = 'dropdown-item' + (state.selectedCategory === value ? ' active' : '');
+  item.innerHTML = `
+    <span class="dropdown-item-name">${escapeHtml(label)}</span>
+    <span class="dropdown-item-count">${count}</span>
+  `;
+  item.onclick = (e) => {
+    e.stopPropagation();
+    selectCategory(value);
+    closeCategoryDropdown();
+  };
+  return item;
+}
+
+function selectCategory(category) {
+  if (state.selectedCategory === category) return;
+  state.selectedCategory = category;
+  updateCategoryFilters();
+  updateCategoryDropdown();
+  animateColorFilterChange();
+}
+
 function updateCategoryFilters() {
+  // Update badge
+  updateCategoryBadge();
+  
   // Update category tabs
   const chipsContainer = document.getElementById('categoryChips');
   if (chipsContainer) {
