@@ -1089,3 +1089,6 @@ class Material {
   }
 }
 
+// Export for use in popup.js
+window.SplashCursor = SplashCursor;
+

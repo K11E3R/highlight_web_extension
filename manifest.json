@@ -9,7 +9,7 @@
     "48": "icons/icon48_0.png",
     "128": "icons/icon128_0.png"
   },
-  "permissions": ["storage", "activeTab", "scripting", "contextMenus", "tabs"],
+  "permissions": ["storage", "activeTab", "scripting", "contextMenus", "tabs", "webNavigation", "notifications"],
   "host_permissions": ["<all_urls>"],
   "action": {
     "default_popup": "popup/popup.html",
@@ -29,6 +29,18 @@
       "matches": ["<all_urls>"],
       "js": ["contentScript.js"],
       "run_at": "document_idle"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "pdfViewer/viewer.html", 
+        "pdfViewer/viewer.css", 
+        "pdfViewer/viewer.js",
+        "pdfViewer/pdf.min.js",
+        "pdfViewer/pdf.worker.min.js"
+      ],
+      "matches": ["<all_urls>"]
     }
   ]
 }

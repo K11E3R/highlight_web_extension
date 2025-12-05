@@ -2,6 +2,7 @@
 const state = {
   highlights: [],
   currentUrl: '',
+  currentPdfUrl: null, // Store PDF URL when on a PDF page
   view: 'page', // 'page' or 'all'
   categories: [],
   selectedCategory: 'all', // Filter by category
@@ -17,9 +18,11 @@ const elements = {
   countBadge: document.getElementById('countBadge'),
   clearBtn: document.getElementById('clearAllBtn'),
   refreshBtn: document.getElementById('refreshBtn'),
-  pdfWarning: document.getElementById('pdfWarning'),
+  pdfBanner: document.getElementById('pdfBanner'),
+  openPdfViewer: document.getElementById('openPdfViewer'),
   viewPageBtn: document.getElementById('viewPageBtn'),
   viewAllBtn: document.getElementById('viewAllBtn'),
+  viewTitle: document.getElementById('viewTitle'),
   exportBtn: document.getElementById('exportBtn'),
   importBtn: document.getElementById('importBtn'),
   importFileInput: document.getElementById('importFileInput'),
@@ -44,7 +47,8 @@ const elements = {
   importHighlightCount: document.getElementById('importHighlightCount'),
   importExportDate: document.getElementById('importExportDate'),
   ribbonToggle: document.getElementById('ribbonToggle'),
-  ribbonIndicator: document.querySelector('.ribbon-mode-indicator')
+  ribbonIndicator: document.getElementById('ribbonIndicator'),
+  toast: document.getElementById('toast')
 };
 
 // Utility functions for messaging
@@ -112,20 +116,68 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+// Check if URL is a PDF
+function isPdfUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return url.includes('.pdf') || 
+           parsed.pathname.endsWith('.pdf') || 
+           parsed.searchParams.get('format') === 'pdf';
+  } catch {
+    return false;
+  }
+}
+
+// Open current PDF in our custom viewer
+async function openPdfInViewer() {
+  if (!state.currentPdfUrl) return;
+  
+  try {
+    await chrome.runtime.sendMessage({
+      type: 'OPEN_PDF_IN_VIEWER',
+      pdfUrl: state.currentPdfUrl
+    });
+    // Close the popup after opening
+    window.close();
+  } catch (e) {
+    console.error('Failed to open PDF in viewer:', e);
+    showNotification('Failed to open PDF viewer', 'error');
+  }
+}
+
+// Extract original PDF URL from viewer URL if applicable
+function getActualUrl(url) {
+  if (url.includes('pdfViewer/viewer.html')) {
+    try {
+      const viewerUrl = new URL(url);
+      const pdfUrl = viewerUrl.searchParams.get('file');
+      if (pdfUrl) return pdfUrl;
+    } catch (e) {
+      console.error('Failed to parse PDF viewer URL:', e);
+    }
+  }
+  return url;
+}
+
 // Main initialization
 async function init() {
   const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
   if (!tab) return;
 
-  // Check for PDF
-  if (tab.url.endsWith('.pdf') || tab.title.endsWith('.pdf')) {
-    if (elements.pdfWarning) {
-      elements.pdfWarning.classList.remove('hidden');
-    }
+  // Check if this is a PDF (but not already in our viewer)
+  const isInOurViewer = tab.url.includes('pdfViewer/viewer.html');
+  const isRegularPdf = !isInOurViewer && isPdfUrl(tab.url);
+  
+  // Show PDF banner with option to open in our viewer
+  if (isRegularPdf && elements.pdfBanner) {
+    elements.pdfBanner.classList.remove('hidden');
+    state.currentPdfUrl = tab.url; // Store for the button
   }
 
-  state.currentUrl = tab.url;
+  // Use original PDF URL for highlights if in viewer
+  state.currentUrl = getActualUrl(tab.url);
   await loadCategories();
   await loadHighlights();
   
@@ -138,6 +190,9 @@ async function init() {
   }
   if (elements.clearBtn) {
     elements.clearBtn.addEventListener('click', clearAll);
+  }
+  if (elements.openPdfViewer) {
+    elements.openPdfViewer.addEventListener('click', openPdfInViewer);
   }
   if (elements.viewPageBtn) {
     elements.viewPageBtn.addEventListener('click', () => switchView('page'));
@@ -219,33 +274,35 @@ async function init() {
 }
 
 function switchView(view) {
-  if (state.view === view) return; // Already in this view
+  if (state.view === view) return;
   
-  // Add exit animation
-  if (elements.list) {
-    elements.list.classList.add('view-switching');
-  }
-  
-  // Wait for exit animation, then switch
-  setTimeout(() => {
+  // Update state immediately
   state.view = view;
+  
+  // Update toggle buttons
   if (elements.viewPageBtn) {
     elements.viewPageBtn.classList.toggle('active', view === 'page');
   }
   if (elements.viewAllBtn) {
     elements.viewAllBtn.classList.toggle('active', view === 'all');
   }
-    
-    // Load highlights (will trigger entrance animation)
-  loadHighlights();
-    
-    // Remove switching class after a brief delay
-    setTimeout(() => {
-      if (elements.list) {
-        elements.list.classList.remove('view-switching');
-      }
-    }, 100);
-  }, 400); // Match viewFadeOut duration
+  
+  // Update title
+  if (elements.viewTitle) {
+    elements.viewTitle.textContent = view === 'page' ? 'This Page' : 'All Pages';
+  }
+  
+  // Add loading state
+  if (elements.list) {
+    elements.list.classList.add('loading');
+  }
+  
+  // Load highlights immediately
+  loadHighlights().then(() => {
+    if (elements.list) {
+      elements.list.classList.remove('loading');
+    }
+  });
 }
 
 async function loadHighlights() {
@@ -343,102 +400,124 @@ function render() {
 
 function createCard(highlight) {
   const div = document.createElement('div');
-  div.className = 'highlight-card';
-  div.title = 'Click to view and blink this highlight';
+  div.className = 'card';
+  div.dataset.id = highlight.id;
 
-  // Get color name for display
-  const colorName = highlight.colorName || getColorNameFromHex(highlight.color);
   const accentColor = highlight.color || '#ffd43b';
-  
-  // Set custom property for card accent color
-  div.style.setProperty('--card-accent-color', accentColor);
+  div.style.setProperty('--card-color', accentColor);
 
-  // Format timestamp
   const timestamp = highlight.createdAt ? formatTimestamp(highlight.createdAt) : 'Recently';
-  
-  // Get page info for 'all' view
-  let pageInfoHtml = '';
+  const highlightText = highlight.text ? escapeHtml(highlight.text.trim()) : 'No text captured';
+  const noteText = highlight.note || '';
+  const categoryValue = highlight.category || 'uncategorized';
+  const highlightUrl = highlight.sourceUrl || state.currentUrl;
+
+  // Build category options
+  const categoryOptions = ['uncategorized', ...state.categories].map(cat => 
+    `<option value="${escapeHtml(cat)}" ${cat === categoryValue ? 'selected' : ''}>${cat === 'uncategorized' ? 'No category' : escapeHtml(cat)}</option>`
+  ).join('');
+
+  // Source section for 'all' view
+  let sourceHtml = '';
   if (state.view === 'all' && highlight.sourceUrl) {
     try {
       const urlObj = new URL(highlight.sourceUrl);
-      const hostname = urlObj.hostname;
-      const pageTitle = highlight.title || hostname;
-      pageInfoHtml = `
-        <div class="page-info" title="${escapeHtml(highlight.sourceUrl)}">
+      sourceHtml = `
+        <div class="card-source">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
             <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
           </svg>
-          <span class="page-hostname">${escapeHtml(hostname)}</span>
+          <a href="${escapeHtml(highlight.sourceUrl)}" class="source-link" title="${escapeHtml(highlight.sourceUrl)}">${escapeHtml(urlObj.hostname)}</a>
         </div>
       `;
-    } catch (e) {
-      pageInfoHtml = '';
-    }
+    } catch (e) {}
   }
 
-  const highlightText = highlight.text ? escapeHtml(highlight.text.trim()) : 'No text captured';
-  const noteText = highlight.note ? escapeHtml(highlight.note) : '';
-  const categoryValue = highlight.category || 'uncategorized';
-
-  // Word count
-  const wordCount = highlightText.split(/\s+/).filter(w => w.length > 0).length;
-
-  // Create category options HTML
-  const categoryOptionsHtml = ['uncategorized', ...state.categories]
-    .map(cat => {
-      const displayName = cat === 'uncategorized' ? 'Uncategorized' : cat;
-      const isSelected = cat === categoryValue ? 'selected' : '';
-      return `<option value="${escapeHtml(cat)}" ${isSelected}>${escapeHtml(displayName)}</option>`;
-    })
-    .join('');
-
   div.innerHTML = `
-    <div class="card-top">
-      <div class="card-meta">
-        <div class="color-badge" style="background-color: ${escapeHtml(accentColor)};" title="${escapeHtml(colorName)}"></div>
-        <div class="card-timestamp">${escapeHtml(timestamp)}</div>
-        ${pageInfoHtml}
-      </div>
-      <select class="highlight-category-select" data-highlight-id="${highlight.id}" title="Change category">
-        ${categoryOptionsHtml}
+    <div class="card-text" title="Click to view">${highlightText}</div>
+    
+    <div class="card-toolbar">
+      <select class="card-category-select" title="Change category">
+        ${categoryOptions}
       </select>
+      <button class="card-action note-btn ${noteText ? 'has-note' : ''}" title="${noteText ? 'Edit note' : 'Add note'}">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+        </svg>
+      </button>
+      <button class="card-action locate-btn" title="View on page">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="11" cy="11" r="8"/>
+          <path d="M21 21l-4.35-4.35"/>
+        </svg>
+      </button>
+      <button class="card-action delete delete-btn" title="Delete">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="3 6 5 6 21 6"/>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+        </svg>
+      </button>
     </div>
     
-    <div class="highlight-text" title="${highlightText}">${highlightText}</div>
+    <div class="card-note-section ${noteText ? 'has-note' : 'hidden'}">
+      <textarea class="card-note-input" placeholder="Add a note...">${escapeHtml(noteText)}</textarea>
+      <div class="card-note-actions">
+        <button class="card-note-save">Save</button>
+        <button class="card-note-cancel">Cancel</button>
+      </div>
+    </div>
     
     <div class="card-footer">
-      <div class="card-info-left">
-        <span class="word-count">${wordCount} word${wordCount !== 1 ? 's' : ''}</span>
-      </div>
-      <div class="card-actions">
-        <button class="card-action-btn locate-btn" title="View on page">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            <path d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-          </svg>
-        </button>
-        <button class="card-action-btn delete-btn" title="Delete">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m3 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6h14z"/>
-            <path d="M10 11v6M14 11v6"/>
-          </svg>
-        </button>
-      </div>
+      <span class="card-date">${escapeHtml(timestamp)}</span>
     </div>
+    ${sourceHtml}
   `;
 
-  // Spotlight effect - track mouse movement
-  div.addEventListener('mousemove', (e) => {
-    const rect = div.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    div.style.setProperty('--mouse-x', `${x}px`);
-    div.style.setProperty('--mouse-y', `${y}px`);
-    // Use card accent color with low opacity for spotlight
-    const accentColorWithAlpha = accentColor + '20'; // Add alpha in hex
-    div.style.setProperty('--spotlight-color', hexToRgba(accentColor, 0.12));
-  });
+  // Category change handler
+  const categorySelect = div.querySelector('.card-category-select');
+  categorySelect.onclick = (e) => e.stopPropagation();
+  categorySelect.onchange = async (e) => {
+    e.stopPropagation();
+    const newCategory = e.target.value;
+    await updateCategory(highlight.id, newCategory, highlightUrl);
+    highlight.category = newCategory;
+    updateCategoryFilters();
+  };
+
+  // Note button handler
+  const noteBtn = div.querySelector('.note-btn');
+  const noteSection = div.querySelector('.card-note-section');
+  const noteInput = div.querySelector('.card-note-input');
+  const noteSave = div.querySelector('.card-note-save');
+  const noteCancel = div.querySelector('.card-note-cancel');
+  
+  noteBtn.onclick = (e) => {
+    e.stopPropagation();
+    noteSection.classList.remove('hidden');
+    noteInput.focus();
+  };
+  
+  noteSave.onclick = async (e) => {
+    e.stopPropagation();
+    const newNote = noteInput.value.trim();
+    await updateNote(highlight.id, newNote, highlightUrl);
+    highlight.note = newNote;
+    noteSection.classList.toggle('has-note', !!newNote);
+    noteSection.classList.add('hidden');
+    noteBtn.classList.toggle('has-note', !!newNote);
+    if (!newNote) noteSection.classList.add('hidden');
+    showNotification('Note saved', 'success');
+  };
+  
+  noteCancel.onclick = (e) => {
+    e.stopPropagation();
+    noteInput.value = highlight.note || '';
+    if (!highlight.note) noteSection.classList.add('hidden');
+  };
+  
+  noteInput.onclick = (e) => e.stopPropagation();
 
   // Card click - open and blink highlight
   div.onclick = (e) => {
@@ -481,98 +560,23 @@ function createCard(highlight) {
     }
   };
 
-  // Category selector change event
-  const categorySelect = div.querySelector('.highlight-category-select');
-  if (categorySelect) {
-    categorySelect.onclick = (e) => {
-      e.stopPropagation(); // Prevent card click
-    };
-    
-    categorySelect.onchange = async (e) => {
+  // Source link click handler
+  const sourceLink = div.querySelector('.source-link');
+  if (sourceLink) {
+    sourceLink.onclick = (e) => {
+      e.preventDefault();
       e.stopPropagation();
-      const newCategory = e.target.value;
-      
-      // Show loading state
-      categorySelect.disabled = true;
-      categorySelect.style.opacity = '0.6';
-      
-      try {
-        // Update highlight category via background script
-        const targetUrl = highlight.sourceUrl || state.currentUrl;
-        
-        // Create updated highlight object
-        const updatedHighlight = {
-          id: highlight.id,
-          category: newCategory
-        };
-        
-        // Send update request to background script
-        const response = await chrome.runtime.sendMessage({
-          type: 'UPDATE_HIGHLIGHT',
-          url: targetUrl,
-          highlight: updatedHighlight
-        });
-        
-        if (response && response.success) {
-          // Success feedback animation
-          categorySelect.style.transform = 'scale(1.15)';
-          categorySelect.style.background = 'linear-gradient(135deg, rgba(81, 207, 102, 0.9), rgba(81, 207, 102, 0.7))';
-          categorySelect.style.borderColor = 'rgba(81, 207, 102, 0.8)';
-          categorySelect.style.boxShadow = '0 0 0 4px rgba(81, 207, 102, 0.2), 0 4px 16px rgba(81, 207, 102, 0.3)';
-          categorySelect.style.color = 'white';
-          
-          setTimeout(async () => {
-            // Reset styles
-            categorySelect.style.transform = '';
-            categorySelect.style.background = '';
-            categorySelect.style.borderColor = '';
-            categorySelect.style.boxShadow = '';
-            categorySelect.style.color = '';
-            categorySelect.disabled = false;
-            categorySelect.style.opacity = '';
-            
-            // Reload highlights from background to ensure data consistency
-            await loadHighlights();
-          }, 400);
-        } else {
-          // Error feedback
-          categorySelect.style.borderColor = 'rgba(255, 107, 107, 0.8)';
-          categorySelect.style.boxShadow = '0 0 0 4px rgba(255, 107, 107, 0.2)';
-          
-          setTimeout(() => {
-            categorySelect.style.borderColor = '';
-            categorySelect.style.boxShadow = '';
-            categorySelect.disabled = false;
-            categorySelect.style.opacity = '';
-            
-            // Revert to old value
-            categorySelect.value = highlight.category || 'uncategorized';
-          }, 500);
-          
-          console.error('Failed to update category:', response?.error);
-        }
-      } catch (error) {
-        console.error('Error updating category:', error);
-        
-        // Error feedback
-        categorySelect.style.borderColor = 'rgba(255, 107, 107, 0.8)';
-        categorySelect.style.boxShadow = '0 0 0 4px rgba(255, 107, 107, 0.2)';
-        
-        setTimeout(() => {
-          categorySelect.style.borderColor = '';
-          categorySelect.style.boxShadow = '';
-          categorySelect.disabled = false;
-          categorySelect.style.opacity = '';
-          
-          // Revert to old value
-          categorySelect.value = highlight.category || 'uncategorized';
-        }, 500);
-      }
+      chrome.runtime.sendMessage({
+        type: 'OPEN_AND_BLINK_HIGHLIGHT',
+        url: highlight.sourceUrl,
+        id: highlight.id
+      });
     };
   }
 
   return div;
 }
+
 
 // Helper function to get color name from hex
 function getColorNameFromHex(hex) {
@@ -728,59 +732,51 @@ async function loadCategories() {
 }
 
 function updateCategoryFilters() {
-  // Update category chips
+  // Update category tabs
   const chipsContainer = document.getElementById('categoryChips');
   if (chipsContainer) {
-    const addBtn = chipsContainer.querySelector('.add-category-btn');
-    
-    // Clear existing chips (keep add button)
     chipsContainer.innerHTML = '';
     
-    // Add "All" chip
-    const allChip = document.createElement('button');
-    allChip.className = 'category-chip' + (state.selectedCategory === 'all' ? ' active' : '');
-    allChip.textContent = 'All';
-    allChip.onclick = () => {
-      if (state.selectedCategory === 'all') return; // Already selected
+    // Add "All" tab
+    const allTab = document.createElement('button');
+    allTab.className = 'category-tab' + (state.selectedCategory === 'all' ? ' active' : '');
+    allTab.textContent = 'All';
+    allTab.onclick = () => {
+      if (state.selectedCategory === 'all') return;
       state.selectedCategory = 'all';
       updateCategoryFilters();
-      animateColorFilterChange(); // Use same animation
+      animateColorFilterChange();
     };
-    chipsContainer.appendChild(allChip);
+    chipsContainer.appendChild(allTab);
     
-    // Add "Uncategorized" chip if there are any
+    // Add "Uncategorized" tab if there are any
     const uncategorizedCount = state.highlights.filter(h => !h.category || h.category === 'uncategorized').length;
     if (uncategorizedCount > 0 || state.selectedCategory === 'uncategorized') {
-      const uncatChip = document.createElement('button');
-      uncatChip.className = 'category-chip' + (state.selectedCategory === 'uncategorized' ? ' active' : '');
-      uncatChip.textContent = 'Uncategorized';
-      uncatChip.onclick = () => {
-        if (state.selectedCategory === 'uncategorized') return; // Already selected
+      const uncatTab = document.createElement('button');
+      uncatTab.className = 'category-tab' + (state.selectedCategory === 'uncategorized' ? ' active' : '');
+      uncatTab.textContent = 'Uncategorized';
+      uncatTab.onclick = () => {
+        if (state.selectedCategory === 'uncategorized') return;
         state.selectedCategory = 'uncategorized';
         updateCategoryFilters();
-        animateColorFilterChange(); // Use same animation
+        animateColorFilterChange();
       };
-      chipsContainer.appendChild(uncatChip);
+      chipsContainer.appendChild(uncatTab);
     }
     
-    // Add category chips
+    // Add category tabs
     state.categories.forEach(cat => {
-      const chip = document.createElement('button');
-      chip.className = 'category-chip' + (state.selectedCategory === cat ? ' active' : '');
-      chip.textContent = cat;
-      chip.onclick = () => {
-        if (state.selectedCategory === cat) return; // Already selected
+      const tab = document.createElement('button');
+      tab.className = 'category-tab' + (state.selectedCategory === cat ? ' active' : '');
+      tab.textContent = cat;
+      tab.onclick = () => {
+        if (state.selectedCategory === cat) return;
         state.selectedCategory = cat;
         updateCategoryFilters();
-        animateColorFilterChange(); // Use same animation
+        animateColorFilterChange();
       };
-      chipsContainer.appendChild(chip);
+      chipsContainer.appendChild(tab);
     });
-    
-    // Re-add the add button
-    if (addBtn) {
-      chipsContainer.appendChild(addBtn);
-    }
   }
 
   // Update import category selector
@@ -882,31 +878,24 @@ function renderCategoryList() {
   elements.categoryList.innerHTML = '';
   
   if (state.categories.length === 0) {
-    elements.categoryList.innerHTML = '<p style="text-align: center; color: var(--text-secondary); font-size: 13px; padding: 20px;">No categories yet. Create your first one!</p>';
+    elements.categoryList.innerHTML = '<li style="text-align: center; color: var(--navy-500); font-size: 13px; padding: 20px;">No categories yet</li>';
     return;
   }
   
   state.categories.forEach(cat => {
-    // Count highlights in this category
     const count = state.highlights.filter(h => h.category === cat).length;
     
-    const item = document.createElement('div');
-    item.className = 'category-item';
+    const item = document.createElement('li');
     item.innerHTML = `
-      <div class="category-item-name">
-        ${escapeHtml(cat)}
-        <span class="category-item-count">${count}</span>
-      </div>
-      <div class="category-item-actions">
-        <button class="delete-category-btn" title="Delete category">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M18 6L6 18M6 6l12 12"/>
-          </svg>
-        </button>
-      </div>
+      <span class="cat-name">${escapeHtml(cat)} (${count})</span>
+      <button class="cat-delete" title="Delete">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M18 6L6 18M6 6l12 12"/>
+        </svg>
+      </button>
     `;
     
-    const deleteBtn = item.querySelector('.delete-category-btn');
+    const deleteBtn = item.querySelector('.cat-delete');
     deleteBtn.onclick = () => deleteCategory(cat);
     
     elements.categoryList.appendChild(item);
@@ -950,13 +939,10 @@ function openExportModal() {
 
 function addExportCategoryOption(value, label, count, checked) {
   const item = document.createElement('div');
-  item.className = 'export-category-item';
+  item.className = 'checkbox-item';
   item.innerHTML = `
     <input type="checkbox" id="export-cat-${escapeHtml(value)}" value="${escapeHtml(value)}" ${checked ? 'checked' : ''}>
-    <label for="export-cat-${escapeHtml(value)}" class="export-category-label">
-      <span>${escapeHtml(label)}</span>
-      <span class="export-category-count">${count} highlight${count !== 1 ? 's' : ''}</span>
-    </label>
+    <label for="export-cat-${escapeHtml(value)}">${escapeHtml(label)} (${count})</label>
   `;
   
   elements.exportCategoryList.appendChild(item);
@@ -1191,52 +1177,22 @@ async function confirmImport() {
 }
 
 function showNotification(message, type = 'info') {
-  const notification = document.createElement('div');
-  notification.className = `notification notification-${type}`;
-  notification.textContent = message;
-  notification.style.cssText = `
-    position: fixed;
-    top: 16px;
-    left: 50%;
-    transform: translateX(-50%);
-    background: ${type === 'success' ? '#10b981' : type === 'error' ? '#ef4444' : type === 'warning' ? '#f59e0b' : '#3b82f6'};
-    color: white;
-    padding: 12px 16px;
-    border-radius: 8px;
-    font-size: 13px;
-    font-weight: 500;
-    z-index: 1000;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-    animation: slideDown 0.3s ease-out;
-  `;
-
-  document.body.appendChild(notification);
-
-  setTimeout(() => {
-    notification.style.animation = 'slideUp 0.3s ease-out';
-    setTimeout(() => {
-      if (notification.parentNode) {
-        notification.remove();
-      }
-    }, 300);
+  const toast = elements.toast;
+  if (!toast) return;
+  
+  // Clear any existing timeout
+  if (toast.hideTimeout) {
+    clearTimeout(toast.hideTimeout);
+  }
+  
+  // Set content and type
+  toast.textContent = message;
+  toast.className = `toast ${type} visible`;
+  
+  // Hide after delay
+  toast.hideTimeout = setTimeout(() => {
+    toast.classList.remove('visible');
   }, 3000);
-}
-
-// Add animation styles for notifications
-if (!document.getElementById('notification-styles')) {
-  const style = document.createElement('style');
-  style.id = 'notification-styles';
-  style.textContent = `
-    @keyframes slideDown {
-      from { transform: translate(-50%, -100%); opacity: 0; }
-      to { transform: translate(-50%, 0); opacity: 1; }
-    }
-    @keyframes slideUp {
-      from { transform: translate(-50%, 0); opacity: 1; }
-      to { transform: translate(-50%, -100%); opacity: 0; }
-    }
-  `;
-  document.head.appendChild(style);
 }
 
 // Ribbon Mode Functions
@@ -1277,15 +1233,13 @@ function toggleRibbonMode() {
         clearTimeout(ribbonIndicatorTimeout);
       }
       
-      // Show indicator immediately
-      elements.ribbonIndicator.style.opacity = '1';
-      elements.ribbonIndicator.style.transform = 'translateY(0) scale(1)';
+      // Show indicator
+      elements.ribbonIndicator.classList.add('visible');
       
-      // Hide after 1 second
+      // Hide after 1.5 seconds
       ribbonIndicatorTimeout = setTimeout(() => {
-        elements.ribbonIndicator.style.opacity = '0';
-        elements.ribbonIndicator.style.transform = 'translateY(20px) scale(0.8)';
-      }, 1000);
+        elements.ribbonIndicator.classList.remove('visible');
+      }, 1500);
     }
     
     // Add ribbons to all cards
@@ -1302,8 +1256,7 @@ function toggleRibbonMode() {
       if (ribbonIndicatorTimeout) {
         clearTimeout(ribbonIndicatorTimeout);
       }
-      elements.ribbonIndicator.style.opacity = '0';
-      elements.ribbonIndicator.style.transform = 'translateY(20px) scale(0.8)';
+      elements.ribbonIndicator.classList.remove('visible');
     }
     
     // Remove ribbons from all cards
@@ -1317,7 +1270,7 @@ function toggleRibbonMode() {
 function addRibbonsToCards() {
   // Ribbon decorations disabled - only subtle glow effect remains in CSS
   // No "NEW" badges or corner ribbons will be added
-  const cards = document.querySelectorAll('.highlight-card');
+  const cards = document.querySelectorAll('.card');
   cards.forEach((card) => {
     // Clear any existing ribbon elements
     card.querySelectorAll('.ribbon-corner, .ribbon-banner, .ribbon-wave, .ribbon-shimmer, .ribbon-fold').forEach(el => el.remove());
@@ -1327,7 +1280,7 @@ function addRibbonsToCards() {
 }
 
 function removeRibbonsFromCards() {
-  const cards = document.querySelectorAll('.highlight-card');
+  const cards = document.querySelectorAll('.card');
   cards.forEach(card => {
     card.classList.remove('has-ribbon');
     card.querySelectorAll('.ribbon-corner, .ribbon-banner, .ribbon-wave, .ribbon-shimmer, .ribbon-fold').forEach(el => el.remove());
@@ -1340,25 +1293,24 @@ function startRibbonTrail() {
     ribbonTrail.destroy();
   }
   
-  // Initialize ribbon trail with adaptive colors
-  ribbonTrail = new window.RibbonTrail({
-    colors: ['#ffffff'], // Will adapt automatically
-    baseThickness: 17,
-    maxAge: 470,
-    pointCount: 40,
-    speedMultiplier: 0.6,
-    baseSpring: 0.03,
-    baseFriction: 0.88,
-    adaptiveColors: true // Enable color adaptation
-  });
+  // Initialize ribbon trail with adaptive colors (if available)
+  if (window.RibbonTrail) {
+    ribbonTrail = new window.RibbonTrail({
+      colors: ['#ffffff'],
+      baseThickness: 17,
+      maxAge: 470,
+      pointCount: 40,
+      speedMultiplier: 0.6,
+      baseSpring: 0.03,
+      baseFriction: 0.88,
+      adaptiveColors: true
+    });
+    
+    ribbonTrail.init(document.body);
+    document.addEventListener('mousemove', handleRibbonMouseMove);
+  }
   
-  // Initialize on body
-  ribbonTrail.init(document.body);
-  
-  // Track mouse movement
-  document.addEventListener('mousemove', handleRibbonMouseMove);
-  
-  // Initialize splash cursor WebGL effect
+  // Initialize splash cursor WebGL effect (if available)
   if (splashCursor) {
     splashCursor.destroy();
   }
@@ -1404,64 +1356,42 @@ function stopRibbonTrail() {
 
 // Color Filter Functions
 function setupColorFilters() {
-  const colorChips = document.querySelectorAll('.color-chip, .color-chip-all');
-  colorChips.forEach(chip => {
-    chip.addEventListener('click', () => {
-      const color = chip.getAttribute('data-color');
+  const colorPills = document.querySelectorAll('.color-pill');
+  colorPills.forEach(pill => {
+    pill.addEventListener('click', () => {
+      const color = pill.getAttribute('data-color');
       
-      // If same color, do nothing
       if (state.selectedColor === color) return;
       
       state.selectedColor = color;
       
-      // Update active state with smooth animation
-      colorChips.forEach(c => {
-        c.classList.remove('active');
-      });
-      chip.classList.add('active');
+      colorPills.forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
       
-      // Animate cards out, then in with new filter
       animateColorFilterChange();
     });
   });
 }
 
 function animateColorFilterChange() {
-  const cards = document.querySelectorAll('.highlight-card');
+  const cards = document.querySelectorAll('.card');
   
   if (cards.length === 0) {
     render();
     return;
   }
   
-  // Phase 1: Fade out all cards with stagger
-  cards.forEach((card, index) => {
-    card.style.animation = 'none';
-    setTimeout(() => {
-      card.style.animation = `cardFadeOut 0.3s cubic-bezier(0.55, 0.085, 0.68, 0.53) forwards`;
-      card.style.animationDelay = `${index * 0.02}s`;
-    }, 10);
+  // Fade out cards
+  cards.forEach(card => {
+    card.style.transition = 'opacity 0.15s, transform 0.15s';
+    card.style.opacity = '0';
+    card.style.transform = 'translateY(8px)';
   });
   
-  // Phase 2: After fade out, re-render with new filter and fade in
-  const totalFadeOutTime = (cards.length * 20) + 300; // stagger + animation duration
-  
+  // Re-render after fade out
   setTimeout(() => {
     render();
-    
-    // Fade in new cards with stagger
-    setTimeout(() => {
-      const newCards = document.querySelectorAll('.highlight-card');
-      newCards.forEach((card, index) => {
-        card.style.opacity = '0';
-        card.style.animation = 'none';
-        setTimeout(() => {
-          card.style.animation = `cardFadeIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards`;
-          card.style.animationDelay = `${index * 0.04}s`;
-        }, 10);
-      });
-    }, 10);
-  }, totalFadeOutTime);
+  }, 150);
 }
 
 // Blur Text Animation for Title

@@ -1,6 +1,118 @@
 const STORAGE_KEY = 'persistentHighlighterEntries';
 const CATEGORIES_KEY = 'persistentHighlighterCategories';
 
+// PDF Viewer helper
+function getPdfViewerUrl(pdfUrl) {
+  const viewerUrl = chrome.runtime.getURL('pdfViewer/viewer.html');
+  return `${viewerUrl}?file=${encodeURIComponent(pdfUrl)}`;
+}
+
+// Check if URL is a PDF
+function isPdfUrl(url) {
+  if (!url) return false;
+  try {
+    const parsed = new URL(url);
+    return (url.includes('.pdf') || 
+           parsed.pathname.endsWith('.pdf') || 
+           parsed.searchParams.get('format') === 'pdf') &&
+           !url.includes('pdfViewer/viewer.html');
+  } catch {
+    return false;
+  }
+}
+
+// PDF Detection - Show badge and notification
+const notifiedPdfTabs = new Set();
+const notificationPdfUrls = {};
+
+function showPdfBadge(tabId) {
+  chrome.action.setBadgeText({ text: 'PDF', tabId });
+  chrome.action.setBadgeBackgroundColor({ color: '#ff6b6b', tabId });
+}
+
+function clearPdfBadge(tabId) {
+  chrome.action.setBadgeText({ text: '', tabId });
+}
+
+function showPdfNotification(url) {
+  // Extract filename from URL
+  let filename = 'PDF Document';
+  try {
+    const parsed = new URL(url);
+    const pathParts = parsed.pathname.split('/');
+    filename = decodeURIComponent(pathParts[pathParts.length - 1] || 'PDF Document');
+    // Truncate long filenames
+    if (filename.length > 40) {
+      filename = filename.substring(0, 37) + '...';
+    }
+  } catch {}
+
+  chrome.notifications.create({
+    type: 'basic',
+    iconUrl: chrome.runtime.getURL('icons/icon128_0.png'),
+    title: '📄 PDF Detected',
+    message: `Click here to open "${filename}" with highlighting support!`,
+    priority: 2,
+    requireInteraction: false
+  }, (notificationId) => {
+    // Store URL for click handler
+    notificationPdfUrls[notificationId] = url;
+    
+    // Auto-close notification after 6 seconds
+    setTimeout(() => {
+      chrome.notifications.clear(notificationId);
+      delete notificationPdfUrls[notificationId];
+    }, 6000);
+  });
+}
+
+// Listen for tab updates to detect PDFs
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url) {
+    if (isPdfUrl(tab.url)) {
+      showPdfBadge(tabId);
+      
+      // Show notification only once per tab session
+      if (!notifiedPdfTabs.has(tabId)) {
+        notifiedPdfTabs.add(tabId);
+        showPdfNotification(tab.url);
+      }
+    } else {
+      clearPdfBadge(tabId);
+    }
+  }
+});
+
+// Listen for tab activation to update badge
+chrome.tabs.onActivated.addListener(async (activeInfo) => {
+  try {
+    const tab = await chrome.tabs.get(activeInfo.tabId);
+    if (tab.url && isPdfUrl(tab.url)) {
+      showPdfBadge(activeInfo.tabId);
+    } else {
+      clearPdfBadge(activeInfo.tabId);
+    }
+  } catch {}
+});
+
+// Clean up when tab closes
+chrome.tabs.onRemoved.addListener((tabId) => {
+  notifiedPdfTabs.delete(tabId);
+});
+
+// Handle notification click - open PDF in viewer
+chrome.notifications.onClicked.addListener(async (notificationId) => {
+  chrome.notifications.clear(notificationId);
+  
+  // Get the PDF URL associated with this notification
+  const pdfUrl = notificationPdfUrls[notificationId];
+  if (pdfUrl) {
+    const viewerUrl = getPdfViewerUrl(pdfUrl);
+    chrome.tabs.create({ url: viewerUrl });
+    delete notificationPdfUrls[notificationId];
+  }
+});
+
 async function getHighlightMap() {
   const stored = await chrome.storage.local.get([STORAGE_KEY]);
   return stored[STORAGE_KEY] || {};
@@ -197,13 +309,10 @@ function isRestrictedUrl(url) {
       };
     }
 
-    if (url.includes('.pdf') || parsed.pathname.endsWith('.pdf') || parsed.searchParams.get('format') === 'pdf') {
-      return {
-        restricted: true,
-        reason: 'PDF files are not supported. Use HTML version if available.',
-        code: 'PDF_FILE',
-        suggestion: 'Try the HTML version (e.g., arxiv.org/abs/ instead of arxiv.org/pdf/)'
-      };
+    // PDFs are now supported via custom viewer - not restricted
+    // Check if this is our PDF viewer page
+    if (url.includes('pdfViewer/viewer.html')) {
+      return { restricted: false, isPdfViewer: true };
     }
 
     return { restricted: false };
@@ -274,7 +383,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
   if (!scriptStatus.success) {
     // Use debug level for expected restrictions (known limitations)
-    const isExpectedRestriction = ['CHROME_INTERNAL', 'CHROME_STORE', 'ABOUT_PAGE', 'PDF_FILE'].includes(scriptStatus.code);
+    const isExpectedRestriction = ['CHROME_INTERNAL', 'CHROME_STORE', 'ABOUT_PAGE'].includes(scriptStatus.code);
 
     if (isExpectedRestriction) {
       // Silently handle expected restrictions - these are known limitations
@@ -484,6 +593,13 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         sendResponse({ success: true });
         break;
       }
+      case 'OPEN_PDF_IN_VIEWER': {
+        // Open PDF in our custom viewer
+        const viewerUrl = getPdfViewerUrl(message.pdfUrl);
+        chrome.tabs.create({ url: viewerUrl });
+        sendResponse({ success: true, viewerUrl });
+        break;
+      }
       case 'CONTENT_SCRIPT_READY': {
         // Check if there's a pending focus for this tab
         const tabId = sender.tab.id;
@@ -493,11 +609,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
           // Send the appropriate command based on the action
           if (typeof pending === 'object' && pending.action === 'BLINK') {
-            chrome.tabs.sendMessage(tabId, { type: 'BLINK_HIGHLIGHT', id: pending.id });
+            chrome.tabs.sendMessage(tabId, { type: 'BLINK_HIGHLIGHT', id: pending.id }, () => {
+              if (chrome.runtime.lastError) { /* ignore */ }
+            });
           } else {
             // Legacy format or focus action
             const highlightId = typeof pending === 'string' ? pending : pending.id;
-          chrome.tabs.sendMessage(tabId, { type: 'FOCUS_HIGHLIGHT', id: highlightId });
+            chrome.tabs.sendMessage(tabId, { type: 'FOCUS_HIGHLIGHT', id: highlightId }, () => {
+              if (chrome.runtime.lastError) { /* ignore */ }
+            });
           }
         }
         sendResponse({ success: true });

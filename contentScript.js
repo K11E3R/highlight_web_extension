@@ -942,20 +942,25 @@ function highlightRange(range, id, color, isNew = false) {
  }
 
 function applyHighlightFromData(data) {
-  // Validate data
-  if (!data || !data.range || !data.id) {
-    console.warn('Invalid highlight data:', data);
+  // Validate data structure
+  if (!data || !data.id) {
+    return;
+  }
+  
+  if (!data.range || typeof data.range !== 'object') {
+    return;
+  }
+  
+  // Validate range properties exist and are correct types
+  const { startXPath, endXPath, startOffset, endOffset } = data.range;
+  if (!startXPath || !endXPath || typeof startOffset !== 'number' || typeof endOffset !== 'number') {
     return;
   }
 
-  const startNode = getNodeFromXPath(data.range.startXPath);
-  const endNode = getNodeFromXPath(data.range.endXPath);
+  const startNode = getNodeFromXPath(startXPath);
+  const endNode = getNodeFromXPath(endXPath);
 
   if (!startNode || !endNode) {
-    console.warn('Could not find nodes for highlight:', {
-      id: data.id,
-      text: data.text?.substring(0, 50)
-    });
     return;
   }
 
@@ -963,21 +968,7 @@ function applyHighlightFromData(data) {
   const startLength = startNode.nodeType === Node.TEXT_NODE ? startNode.length : startNode.childNodes.length;
   const endLength = endNode.nodeType === Node.TEXT_NODE ? endNode.length : endNode.childNodes.length;
 
-  if (data.range.startOffset > startLength) {
-    console.warn('Invalid start offset:', {
-      id: data.id,
-      offset: data.range.startOffset,
-      maxLength: startLength
-    });
-    return;
-  }
-
-  if (data.range.endOffset > endLength) {
-    console.warn('Invalid end offset:', {
-      id: data.id,
-      offset: data.range.endOffset,
-      maxLength: endLength
-    });
+  if (startOffset > startLength || endOffset > endLength) {
     return;
   }
 
@@ -1491,7 +1482,42 @@ function showContextInvalidatedToast() {
   showToast('Extension updated. Refresh page to save.', 'error');
 }
 
+function isPdfPage() {
+  // Check if this is Chrome's native PDF viewer
+  const url = window.location.href;
+  
+  // Check URL patterns
+  if (url.endsWith('.pdf') || url.includes('.pdf?') || url.includes('.pdf#')) {
+    return true;
+  }
+  
+  // Check for Chrome's PDF viewer embed
+  if (document.querySelector('embed[type="application/pdf"]')) {
+    return true;
+  }
+  
+  // Check content-type meta tag
+  const contentType = document.contentType || document.mimeType;
+  if (contentType === 'application/pdf') {
+    return true;
+  }
+  
+  // Check if document body only has an embed element (Chrome PDF viewer)
+  if (document.body && document.body.children.length === 1 && 
+      document.body.children[0].tagName === 'EMBED') {
+    return true;
+  }
+  
+  return false;
+}
+
 function init() {
+  // Skip initialization for PDF pages - they need our custom viewer
+  if (isPdfPage()) {
+    console.log('[Highlighter] PDF detected - use the PDF viewer for highlighting');
+    return;
+  }
+  
   injectStyles();
 
   document.addEventListener('mouseup', (e) => {
@@ -1527,7 +1553,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 
   if (msg.type === 'PING') {
-    sendResponse({ success: true, loaded: true });
+    // Indicate if this is a PDF page
+    sendResponse({ success: true, loaded: true, isPdf: isPdfPage() });
   } else if (msg.type === 'REMOVE_HIGHLIGHT') {
     removeHighlight(msg.id);
     sendResponse({ success: true });
