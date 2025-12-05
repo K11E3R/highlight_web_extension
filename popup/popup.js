@@ -1,14 +1,27 @@
 // State management
 const state = {
   highlights: [],
+  allHighlights: [],
   currentUrl: '',
-  currentPdfUrl: null, // Store PDF URL when on a PDF page
-  view: 'page', // 'page' or 'all'
+  currentPdfUrl: null,
+  view: 'page', // 'page', 'all', 'dashboard', 'favorites'
   categories: [],
-  selectedCategory: 'all', // Filter by category
-  selectedColor: 'all', // Filter by color
-  importFileData: null, // Temporary storage for import data
-  ribbonMode: false // Ribbon decorations active
+  selectedCategory: 'all',
+  selectedColor: 'all',
+  selectedDateRange: 'all',
+  sortBy: 'newest',
+  searchQuery: '',
+  importFileData: null,
+  ribbonMode: false,
+  // Settings
+  settings: {
+    expandDefault: false,
+    showNotePreview: true,
+    showUrl: true,
+    quickModeEffects: true,
+    confirmDelete: false,
+    defaultColor: '#ffd43b'
+  }
 };
 
 // DOM Elements
@@ -27,13 +40,33 @@ const elements = {
   importBtn: document.getElementById('importBtn'),
   importFileInput: document.getElementById('importFileInput'),
   categoryFilter: document.getElementById('categoryFilter'),
+  // Search & Sort
+  searchInput: document.getElementById('searchInput'),
+  clearSearchBtn: document.getElementById('clearSearchBtn'),
+  sortBtn: document.getElementById('sortBtn'),
+  sortLabel: document.getElementById('sortLabel'),
+  sortDropdown: document.getElementById('sortDropdown'),
+  // Date filter
+  dateChips: document.querySelectorAll('.date-chip'),
+  // Dashboard & Favorites
+  dashboardBtn: document.getElementById('dashboardBtn'),
+  favoritesBtn: document.getElementById('favoritesBtn'),
+  dashboardView: document.getElementById('dashboardView'),
+  highlightsWrapper: document.querySelector('.highlights-wrapper'),
+  // Stats elements
+  statTotal: document.getElementById('statTotal'),
+  statFavorites: document.getElementById('statFavorites'),
+  statPages: document.getElementById('statPages'),
+  statWeek: document.getElementById('statWeek'),
+  colorChart: document.getElementById('colorChart'),
+  categoryChart: document.getElementById('categoryChart'),
   // Category dropdown
   categoriesBtn: document.getElementById('categoriesBtn'),
   categoryBadge: document.getElementById('categoryBadge'),
   categoryDropdown: document.getElementById('categoryDropdown'),
   categoryDropdownList: document.getElementById('categoryDropdownList'),
   addCategoryDropdownBtn: document.getElementById('addCategoryDropdownBtn'),
-  // Category modal (for adding new)
+  // Category modal
   manageCategoriesBtn: document.getElementById('manageCategoriesBtn'),
   categoryModal: document.getElementById('categoryModal'),
   closeCategoryModal: document.getElementById('closeCategoryModal'),
@@ -53,9 +86,18 @@ const elements = {
   importFileName: document.getElementById('importFileName'),
   importHighlightCount: document.getElementById('importHighlightCount'),
   importExportDate: document.getElementById('importExportDate'),
-  ribbonToggle: document.getElementById('ribbonToggle'),
+  brandIcon: document.getElementById('brandIcon'),
   ribbonIndicator: document.getElementById('ribbonIndicator'),
-  toast: document.getElementById('toast')
+  toast: document.getElementById('toast'),
+  // Settings
+  settingsBtn: document.getElementById('settingsBtn'),
+  settingsModal: document.getElementById('settingsModal'),
+  closeSettingsModal: document.getElementById('closeSettingsModal'),
+  settingExpandDefault: document.getElementById('settingExpandDefault'),
+  settingShowNotePreview: document.getElementById('settingShowNotePreview'),
+  settingShowUrl: document.getElementById('settingShowUrl'),
+  settingQuickModeEffects: document.getElementById('settingQuickModeEffects'),
+  settingConfirmDelete: document.getElementById('settingConfirmDelete')
 };
 
 // Utility functions for messaging
@@ -273,9 +315,46 @@ async function init() {
     elements.cancelImportBtn.addEventListener('click', closeImportModal);
   }
   // Ribbon toggle
-  if (elements.ribbonToggle) {
-    elements.ribbonToggle.addEventListener('click', toggleRibbonMode);
+  // Brand icon toggles quick mode
+  if (elements.brandIcon) {
+    elements.brandIcon.addEventListener('click', toggleRibbonMode);
   }
+  
+  // Search functionality
+  if (elements.searchInput) {
+    elements.searchInput.addEventListener('input', handleSearch);
+  }
+  if (elements.clearSearchBtn) {
+    elements.clearSearchBtn.addEventListener('click', clearSearch);
+  }
+  
+  // Sort functionality
+  if (elements.sortBtn) {
+    elements.sortBtn.addEventListener('click', toggleSortDropdown);
+  }
+  setupSortOptions();
+  // Close sort dropdown on outside click
+  document.addEventListener('click', (e) => {
+    if (elements.sortDropdown && !elements.sortDropdown.classList.contains('hidden')) {
+      if (!elements.sortDropdown.contains(e.target) && !elements.sortBtn.contains(e.target)) {
+        elements.sortDropdown.classList.add('hidden');
+      }
+    }
+  });
+  
+  // Date filter chips
+  setupDateFilters();
+  
+  // Dashboard button
+  if (elements.dashboardBtn) {
+    elements.dashboardBtn.addEventListener('click', () => switchView('dashboard'));
+  }
+  
+  // Favorites button
+  if (elements.favoritesBtn) {
+    elements.favoritesBtn.addEventListener('click', () => switchView('favorites'));
+  }
+  
   // Color filter chips
   setupColorFilters();
   // Blur text animation for title
@@ -298,25 +377,71 @@ async function init() {
       if (e.target === elements.importModal) closeImportModal();
     });
   }
+  
+  // Settings
+  if (elements.settingsBtn) {
+    elements.settingsBtn.addEventListener('click', openSettingsModal);
+  }
+  if (elements.closeSettingsModal) {
+    elements.closeSettingsModal.addEventListener('click', closeSettingsModal);
+  }
+  if (elements.settingsModal) {
+    elements.settingsModal.addEventListener('click', (e) => {
+      if (e.target === elements.settingsModal) closeSettingsModal();
+    });
+  }
+  
+  // Load settings
+  loadSettings();
+  setupSettingsHandlers();
 }
 
 function switchView(view) {
   if (state.view === view) return;
   
-  // Update state immediately
+  const previousView = state.view;
   state.view = view;
   
-  // Update toggle buttons
+  // Update nav buttons
   if (elements.viewPageBtn) {
     elements.viewPageBtn.classList.toggle('active', view === 'page');
   }
   if (elements.viewAllBtn) {
     elements.viewAllBtn.classList.toggle('active', view === 'all');
   }
+  if (elements.dashboardBtn) {
+    elements.dashboardBtn.classList.toggle('active', view === 'dashboard');
+  }
+  if (elements.favoritesBtn) {
+    elements.favoritesBtn.classList.toggle('active', view === 'favorites');
+  }
   
   // Update title
   if (elements.viewTitle) {
-    elements.viewTitle.textContent = view === 'page' ? 'This Page' : 'All Pages';
+    const titles = {
+      page: 'This Page',
+      all: 'All Pages',
+      dashboard: 'Dashboard',
+      favorites: 'Favorites'
+    };
+    elements.viewTitle.textContent = titles[view] || 'Highlights';
+  }
+  
+  // Show/hide dashboard vs highlights
+  if (view === 'dashboard') {
+    elements.dashboardView?.classList.remove('hidden');
+    elements.highlightsWrapper?.classList.add('hidden');
+    document.querySelector('.filters')?.classList.add('hidden');
+    document.querySelector('.search-bar')?.classList.add('hidden');
+    document.querySelector('.date-filter')?.classList.add('hidden');
+    loadDashboardStats();
+    return;
+  } else {
+    elements.dashboardView?.classList.add('hidden');
+    elements.highlightsWrapper?.classList.remove('hidden');
+    document.querySelector('.filters')?.classList.remove('hidden');
+    document.querySelector('.search-bar')?.classList.remove('hidden');
+    document.querySelector('.date-filter')?.classList.remove('hidden');
   }
   
   // Add loading state
@@ -324,7 +449,7 @@ function switchView(view) {
     elements.list.classList.add('loading');
   }
   
-  // Load highlights immediately
+  // Load highlights
   loadHighlights().then(() => {
     if (elements.list) {
       elements.list.classList.remove('loading');
@@ -335,20 +460,26 @@ function switchView(view) {
 async function loadHighlights() {
   if (!elements.refreshBtn) return;
   
-  // Spin icon
   elements.refreshBtn.classList.add('spinning');
 
   try {
     let response;
+    // Always get all highlights for stats
+    const allResponse = await chrome.runtime.sendMessage({ type: 'GET_ALL_HIGHLIGHTS' });
+    if (allResponse && allResponse.highlights) {
+      state.allHighlights = allResponse.highlights;
+    }
+    
     if (state.view === 'page') {
       response = await chrome.runtime.sendMessage({
         type: 'GET_HIGHLIGHTS',
         url: state.currentUrl
       });
+    } else if (state.view === 'favorites') {
+      // Filter all highlights for favorites
+      response = { highlights: state.allHighlights.filter(h => h.favorite) };
     } else {
-      response = await chrome.runtime.sendMessage({
-        type: 'GET_ALL_HIGHLIGHTS'
-      });
+      response = allResponse;
     }
 
     if (response && response.highlights) {
@@ -376,13 +507,14 @@ function render() {
     if (child.id !== 'emptyState') child.remove();
   });
 
-  // Filter highlights by category
-  let filteredHighlights = state.highlights;
+  let filteredHighlights = [...state.highlights];
+  
+  // Filter by category
   if (state.selectedCategory !== 'all') {
     if (state.selectedCategory === 'uncategorized') {
-      filteredHighlights = state.highlights.filter(h => !h.category || h.category === 'uncategorized');
+      filteredHighlights = filteredHighlights.filter(h => !h.category || h.category === 'uncategorized');
     } else {
-      filteredHighlights = state.highlights.filter(h => h.category === state.selectedCategory);
+      filteredHighlights = filteredHighlights.filter(h => h.category === state.selectedCategory);
     }
   }
   
@@ -390,6 +522,45 @@ function render() {
   if (state.selectedColor !== 'all') {
     filteredHighlights = filteredHighlights.filter(h => h.color === state.selectedColor);
   }
+  
+  // Filter by search query
+  if (state.searchQuery) {
+    const query = state.searchQuery.toLowerCase();
+    filteredHighlights = filteredHighlights.filter(h => 
+      (h.text && h.text.toLowerCase().includes(query)) ||
+      (h.note && h.note.toLowerCase().includes(query)) ||
+      (h.sourceUrl && h.sourceUrl.toLowerCase().includes(query))
+    );
+  }
+  
+  // Filter by date range
+  if (state.selectedDateRange !== 'all') {
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    filteredHighlights = filteredHighlights.filter(h => {
+      if (!h.createdAt) return false;
+      const created = new Date(h.createdAt);
+      
+      switch (state.selectedDateRange) {
+        case 'today':
+          return created >= today;
+        case 'week':
+          const weekAgo = new Date(today);
+          weekAgo.setDate(weekAgo.getDate() - 7);
+          return created >= weekAgo;
+        case 'month':
+          const monthAgo = new Date(today);
+          monthAgo.setMonth(monthAgo.getMonth() - 1);
+          return created >= monthAgo;
+        default:
+          return true;
+      }
+    });
+  }
+  
+  // Sort highlights
+  filteredHighlights = sortHighlights(filteredHighlights, state.sortBy);
 
   const count = filteredHighlights.length;
   
@@ -398,15 +569,31 @@ function render() {
   }
   
   if (elements.clearBtn) {
-    elements.clearBtn.disabled = count === 0 || state.view === 'all'; // Disable clear all in global view for safety
+    elements.clearBtn.disabled = count === 0 || state.view === 'all' || state.view === 'favorites';
   }
 
   if (count === 0) {
     if (elements.emptyState) {
-      elements.emptyState.style.display = 'block';
+      elements.emptyState.style.display = 'flex';
       const heading = elements.emptyState.querySelector('h3');
+      const desc = elements.emptyState.querySelector('p');
       if (heading) {
-        heading.textContent = state.view === 'page' ? 'No highlights yet' : 'No saved highlights';
+        if (state.searchQuery) {
+          heading.textContent = 'No results found';
+        } else if (state.view === 'favorites') {
+          heading.textContent = 'No favorites yet';
+        } else {
+          heading.textContent = state.view === 'page' ? 'No highlights yet' : 'No saved highlights';
+        }
+      }
+      if (desc) {
+        if (state.searchQuery) {
+          desc.textContent = 'Try a different search term';
+        } else if (state.view === 'favorites') {
+          desc.textContent = 'Star highlights to add them here';
+        } else {
+          desc.textContent = 'Select text on any page to highlight';
+        }
       }
     }
     return;
@@ -427,70 +614,128 @@ function render() {
   }
 }
 
+// Sort highlights
+function sortHighlights(highlights, sortBy) {
+  const sorted = [...highlights];
+  switch (sortBy) {
+    case 'newest':
+      return sorted.sort((a, b) => new Date(b.createdAt || 0) - new Date(a.createdAt || 0));
+    case 'oldest':
+      return sorted.sort((a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0));
+    case 'alpha':
+      return sorted.sort((a, b) => (a.text || '').localeCompare(b.text || ''));
+    case 'alpha-desc':
+      return sorted.sort((a, b) => (b.text || '').localeCompare(a.text || ''));
+    default:
+      return sorted;
+  }
+}
+
 function createCard(highlight) {
   const div = document.createElement('div');
-  div.className = 'card';
+  const isExpanded = state.settings.expandDefault;
+  div.className = 'card' + (highlight.favorite ? ' favorited' : '') + (isExpanded ? ' expanded' : '');
   div.dataset.id = highlight.id;
 
   const accentColor = highlight.color || '#ffd43b';
   div.style.setProperty('--card-color', accentColor);
 
   const timestamp = highlight.createdAt ? formatTimestamp(highlight.createdAt) : 'Recently';
-  const highlightText = highlight.text ? escapeHtml(highlight.text.trim()) : 'No text captured';
+  const highlightText = highlight.text ? highlight.text.trim() : 'No text captured';
+  const previewText = highlightText.length > 60 ? highlightText.substring(0, 60) + '...' : highlightText;
   const noteText = highlight.note || '';
   const categoryValue = highlight.category || 'uncategorized';
   const highlightUrl = highlight.sourceUrl || state.currentUrl;
+  const isFavorite = highlight.favorite || false;
 
   // Build category options
   const categoryOptions = ['uncategorized', ...state.categories].map(cat => 
     `<option value="${escapeHtml(cat)}" ${cat === categoryValue ? 'selected' : ''}>${cat === 'uncategorized' ? 'No category' : escapeHtml(cat)}</option>`
   ).join('');
 
-  // Source section for 'all' view
+  // Source info for all/favorites views
   let sourceHtml = '';
-  if (state.view === 'all' && highlight.sourceUrl) {
+  if (state.settings.showUrl && (state.view === 'all' || state.view === 'favorites') && highlight.sourceUrl) {
     try {
       const urlObj = new URL(highlight.sourceUrl);
-      sourceHtml = `
-        <div class="card-source">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-          </svg>
-          <a href="${escapeHtml(highlight.sourceUrl)}" class="source-link" title="${escapeHtml(highlight.sourceUrl)}">${escapeHtml(urlObj.hostname)}</a>
-        </div>
-      `;
+      sourceHtml = `<span class="card-url" title="${escapeHtml(highlight.sourceUrl)}">${escapeHtml(urlObj.hostname)}</span>`;
     } catch (e) {}
   }
 
   div.innerHTML = `
-    <div class="card-text" title="Click to view">${highlightText}</div>
-    
-    <div class="card-toolbar">
-      <select class="card-category-select" title="Change category">
-        ${categoryOptions}
-      </select>
-      <button class="card-action note-btn ${noteText ? 'has-note' : ''}" title="${noteText ? 'Edit note' : 'Add note'}">
+    <!-- Collapsed Header - Always visible -->
+    <div class="card-header">
+      <span class="card-color-dot"></span>
+      <span class="card-preview">${escapeHtml(previewText)}</span>
+      ${isFavorite ? '<span class="card-favorite-icon">★</span>' : ''}
+      <button class="card-expand-btn" title="Expand/Collapse">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
-          <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
-        </svg>
-      </button>
-      <button class="card-action locate-btn" title="View on page">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <circle cx="11" cy="11" r="8"/>
-          <path d="M21 21l-4.35-4.35"/>
-        </svg>
-      </button>
-      <button class="card-action delete delete-btn" title="Delete">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="3 6 5 6 21 6"/>
-          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          <path d="M6 9l6 6 6-6"/>
         </svg>
       </button>
     </div>
     
-    <div class="card-note-section ${noteText ? 'has-note' : 'hidden'}">
+    <!-- Expandable Body -->
+    <div class="card-body">
+      <div class="card-text">${escapeHtml(highlightText)}</div>
+      
+      ${noteText && state.settings.showNotePreview ? `<div class="card-note-preview">"${escapeHtml(noteText.substring(0, 100))}${noteText.length > 100 ? '...' : ''}"</div>` : ''}
+      
+      <div class="card-toolbar">
+        <select class="card-category-select" title="Change category">
+          ${categoryOptions}
+        </select>
+      </div>
+      
+      <div class="card-actions">
+        <button class="card-action favorite-btn ${isFavorite ? 'active' : ''}" title="${isFavorite ? 'Remove from favorites' : 'Add to favorites'}">
+          <svg viewBox="0 0 24 24" fill="${isFavorite ? 'currentColor' : 'none'}" stroke="currentColor" stroke-width="2">
+            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+          </svg>
+        </button>
+        <button class="card-action copy-btn" title="Copy text">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+            <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+          </svg>
+        </button>
+        <button class="card-action note-btn ${noteText ? 'has-note' : ''}" title="${noteText ? 'Edit note' : 'Add note'}">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+          </svg>
+        </button>
+        <button class="card-action locate-btn" title="Find on page">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="10"/>
+            <circle cx="12" cy="12" r="3"/>
+          </svg>
+        </button>
+        <span class="spacer"></span>
+        <button class="card-action delete-btn" title="Delete">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+        </button>
+      </div>
+      
+      <div class="card-note-section hidden">
+        <textarea class="card-note-input" placeholder="Add a note...">${escapeHtml(noteText)}</textarea>
+        <div class="card-note-actions">
+          <button class="card-note-save">Save</button>
+          <button class="card-note-cancel">Cancel</button>
+        </div>
+      </div>
+      
+      <div class="card-footer">
+        ${sourceHtml}
+        <span class="card-date">${escapeHtml(timestamp)}</span>
+      </div>
+    </div>
+    </div>
+    
+    <div class="card-note-section hidden">
       <textarea class="card-note-input" placeholder="Add a note...">${escapeHtml(noteText)}</textarea>
       <div class="card-note-actions">
         <button class="card-note-save">Save</button>
@@ -499,10 +744,22 @@ function createCard(highlight) {
     </div>
     
     <div class="card-footer">
+      ${sourceHtml}
       <span class="card-date">${escapeHtml(timestamp)}</span>
     </div>
-    ${sourceHtml}
   `;
+
+  // Expand/Collapse handler
+  const expandBtn = div.querySelector('.card-expand-btn');
+  const cardHeader = div.querySelector('.card-header');
+  
+  const toggleExpand = (e) => {
+    e.stopPropagation();
+    div.classList.toggle('expanded');
+  };
+  
+  expandBtn.onclick = toggleExpand;
+  cardHeader.onclick = toggleExpand;
 
   // Category change handler
   const categorySelect = div.querySelector('.card-category-select');
@@ -533,20 +790,105 @@ function createCard(highlight) {
     const newNote = noteInput.value.trim();
     await updateNote(highlight.id, newNote, highlightUrl);
     highlight.note = newNote;
-    noteSection.classList.toggle('has-note', !!newNote);
     noteSection.classList.add('hidden');
     noteBtn.classList.toggle('has-note', !!newNote);
-    if (!newNote) noteSection.classList.add('hidden');
+    
+    // Update note preview
+    let notePreviewEl = div.querySelector('.card-note-preview');
+    if (newNote && state.settings.showNotePreview) {
+      const previewText = `"${newNote.substring(0, 100)}${newNote.length > 100 ? '...' : ''}"`;
+      if (notePreviewEl) {
+        notePreviewEl.textContent = previewText;
+      } else {
+        notePreviewEl = document.createElement('div');
+        notePreviewEl.className = 'card-note-preview';
+        notePreviewEl.textContent = previewText;
+        notePreviewEl.onclick = (e) => {
+          e.stopPropagation();
+          noteSection.classList.remove('hidden');
+          noteInput.focus();
+        };
+        const cardText = div.querySelector('.card-text');
+        if (cardText && cardText.nextSibling) {
+          cardText.parentNode.insertBefore(notePreviewEl, cardText.nextSibling);
+        }
+      }
+    } else if (notePreviewEl) {
+      notePreviewEl.remove();
+    }
+    
     showNotification('Note saved', 'success');
   };
   
   noteCancel.onclick = (e) => {
     e.stopPropagation();
     noteInput.value = highlight.note || '';
-    if (!highlight.note) noteSection.classList.add('hidden');
+    noteSection.classList.add('hidden');
   };
   
   noteInput.onclick = (e) => e.stopPropagation();
+  
+  // Allow Enter+Ctrl to save note
+  noteInput.onkeydown = (e) => {
+    if (e.key === 'Enter' && e.ctrlKey) {
+      e.preventDefault();
+      noteSave.click();
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      noteCancel.click();
+    }
+  };
+
+  // Favorite button handler
+  const favoriteBtn = div.querySelector('.favorite-btn');
+  favoriteBtn.onclick = async (e) => {
+    e.stopPropagation();
+    const newFavorite = !highlight.favorite;
+    await updateFavorite(highlight.id, newFavorite, highlightUrl);
+    highlight.favorite = newFavorite;
+    div.classList.toggle('favorited', newFavorite);
+    favoriteBtn.classList.toggle('active', newFavorite);
+    favoriteBtn.title = newFavorite ? 'Remove from favorites' : 'Add to favorites';
+    favoriteBtn.querySelector('svg').setAttribute('fill', newFavorite ? 'currentColor' : 'none');
+    showNotification(newFavorite ? 'Added to favorites' : 'Removed from favorites', 'success');
+    
+    // If in favorites view and unfavoriting, remove the card
+    if (state.view === 'favorites' && !newFavorite) {
+      div.style.animation = 'cardOut 0.3s ease forwards';
+      setTimeout(() => {
+        div.remove();
+        state.highlights = state.highlights.filter(h => h.id !== highlight.id);
+        if (state.highlights.length === 0) {
+          render();
+        }
+      }, 300);
+    }
+  };
+
+  // Copy button handler
+  const copyBtn = div.querySelector('.copy-btn');
+  copyBtn.onclick = async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(highlight.text || '');
+      copyBtn.classList.add('copied');
+      showNotification('Copied to clipboard', 'success');
+      setTimeout(() => copyBtn.classList.remove('copied'), 1500);
+    } catch (err) {
+      showNotification('Failed to copy', 'error');
+    }
+  };
+
+  // Note preview click opens note editor
+  const notePreview = div.querySelector('.card-note-preview');
+  if (notePreview) {
+    notePreview.onclick = (e) => {
+      e.stopPropagation();
+      noteSection.classList.remove('hidden');
+      noteInput.focus();
+    };
+  }
 
   // Card click - open and blink highlight
   div.onclick = (e) => {
@@ -689,6 +1031,11 @@ async function updateNote(id, note, url) {
       highlight
     });
   }
+  // Also update in allHighlights
+  const allHighlight = state.allHighlights.find(h => h.id === id);
+  if (allHighlight) {
+    allHighlight.note = note;
+  }
 }
 
 async function updateCategory(id, category, url) {
@@ -702,6 +1049,223 @@ async function updateCategory(id, category, url) {
     });
     showNotification('Category updated', 'success');
   }
+}
+
+async function updateFavorite(id, favorite, url) {
+  const highlight = state.highlights.find(h => h.id === id);
+  if (highlight) {
+    highlight.favorite = favorite;
+    await chrome.runtime.sendMessage({
+      type: 'UPDATE_HIGHLIGHT',
+      url: url,
+      highlight
+    });
+  }
+  // Also update in allHighlights
+  const allHighlight = state.allHighlights.find(h => h.id === id);
+  if (allHighlight) {
+    allHighlight.favorite = favorite;
+  }
+}
+
+// ==========================================
+// SEARCH FUNCTIONALITY
+// ==========================================
+
+function handleSearch(e) {
+  const query = e.target.value.trim();
+  state.searchQuery = query;
+  
+  // Show/hide clear button
+  if (elements.clearSearchBtn) {
+    elements.clearSearchBtn.classList.toggle('hidden', !query);
+  }
+  
+  render();
+}
+
+function clearSearch() {
+  state.searchQuery = '';
+  if (elements.searchInput) {
+    elements.searchInput.value = '';
+  }
+  if (elements.clearSearchBtn) {
+    elements.clearSearchBtn.classList.add('hidden');
+  }
+  render();
+}
+
+// ==========================================
+// SORT FUNCTIONALITY
+// ==========================================
+
+function toggleSortDropdown() {
+  if (elements.sortDropdown) {
+    elements.sortDropdown.classList.toggle('hidden');
+  }
+}
+
+function setupSortOptions() {
+  const sortOptions = document.querySelectorAll('.sort-option');
+  sortOptions.forEach(option => {
+    option.addEventListener('click', () => {
+      const sortBy = option.dataset.sort;
+      state.sortBy = sortBy;
+      
+      // Update active state
+      sortOptions.forEach(opt => opt.classList.remove('active'));
+      option.classList.add('active');
+      
+      // Update label
+      const labels = { newest: 'Newest', oldest: 'Oldest', alpha: 'A-Z', 'alpha-desc': 'Z-A' };
+      if (elements.sortLabel) {
+        elements.sortLabel.textContent = labels[sortBy] || 'Sort';
+      }
+      
+      // Close dropdown
+      if (elements.sortDropdown) {
+        elements.sortDropdown.classList.add('hidden');
+      }
+      
+      render();
+    });
+  });
+}
+
+// ==========================================
+// DATE FILTER FUNCTIONALITY
+// ==========================================
+
+function setupDateFilters() {
+  const dateChips = document.querySelectorAll('.date-chip');
+  dateChips.forEach(chip => {
+    chip.addEventListener('click', () => {
+      const range = chip.dataset.range;
+      state.selectedDateRange = range;
+      
+      // Update active state
+      dateChips.forEach(c => c.classList.remove('active'));
+      chip.classList.add('active');
+      
+      render();
+    });
+  });
+}
+
+// ==========================================
+// DASHBOARD FUNCTIONALITY
+// ==========================================
+
+async function loadDashboardStats() {
+  // Load all highlights if not already loaded
+  if (state.allHighlights.length === 0) {
+    const response = await chrome.runtime.sendMessage({ type: 'GET_ALL_HIGHLIGHTS' });
+    if (response && response.highlights) {
+      state.allHighlights = response.highlights;
+    }
+  }
+  
+  const highlights = state.allHighlights;
+  
+  // Calculate stats
+  const total = highlights.length;
+  const favorites = highlights.filter(h => h.favorite).length;
+  const uniqueUrls = new Set(highlights.map(h => h.sourceUrl)).size;
+  
+  // This week count
+  const weekAgo = new Date();
+  weekAgo.setDate(weekAgo.getDate() - 7);
+  const thisWeek = highlights.filter(h => h.createdAt && new Date(h.createdAt) >= weekAgo).length;
+  
+  // Update stat cards
+  if (elements.statTotal) elements.statTotal.textContent = total;
+  if (elements.statFavorites) elements.statFavorites.textContent = favorites;
+  if (elements.statPages) elements.statPages.textContent = uniqueUrls;
+  if (elements.statWeek) elements.statWeek.textContent = thisWeek;
+  
+  // Render color chart
+  renderColorChart(highlights);
+  
+  // Render category chart
+  renderCategoryChart(highlights);
+}
+
+function renderColorChart(highlights) {
+  if (!elements.colorChart) return;
+  
+  const colorCounts = {};
+  const colorLabels = {
+    '#ffd43b': { name: 'Yellow', color: 'var(--hl-yellow)' },
+    '#51cf66': { name: 'Green', color: 'var(--hl-green)' },
+    '#4dabf7': { name: 'Blue', color: 'var(--hl-blue)' },
+    '#9775fa': { name: 'Purple', color: 'var(--hl-purple)' },
+    '#ff6ba7': { name: 'Pink', color: 'var(--hl-pink)' }
+  };
+  
+  // Count by color
+  highlights.forEach(h => {
+    const color = h.color || '#ffd43b';
+    colorCounts[color] = (colorCounts[color] || 0) + 1;
+  });
+  
+  const maxCount = Math.max(...Object.values(colorCounts), 1);
+  
+  let html = '';
+  Object.entries(colorLabels).forEach(([hex, info]) => {
+    const count = colorCounts[hex] || 0;
+    const percentage = (count / maxCount) * 100;
+    html += `
+      <div class="color-bar">
+        <div class="color-bar-dot" style="background: ${info.color}"></div>
+        <div class="color-bar-track">
+          <div class="color-bar-fill" style="width: ${percentage}%; background: ${info.color}"></div>
+        </div>
+        <span class="color-bar-count">${count}</span>
+      </div>
+    `;
+  });
+  
+  elements.colorChart.innerHTML = html;
+}
+
+function renderCategoryChart(highlights) {
+  if (!elements.categoryChart) return;
+  
+  const categoryCounts = {};
+  
+  // Count by category
+  highlights.forEach(h => {
+    const cat = h.category || 'Uncategorized';
+    categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
+  });
+  
+  // Sort by count and take top 5
+  const sorted = Object.entries(categoryCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5);
+  
+  if (sorted.length === 0) {
+    elements.categoryChart.innerHTML = '<div class="dropdown-empty">No categories yet</div>';
+    return;
+  }
+  
+  const maxCount = sorted[0][1];
+  
+  let html = '';
+  sorted.forEach(([name, count]) => {
+    const percentage = (count / maxCount) * 100;
+    html += `
+      <div class="category-bar">
+        <span class="category-bar-name">${escapeHtml(name)}</span>
+        <div class="category-bar-track">
+          <div class="category-bar-fill" style="width: ${percentage}%"></div>
+        </div>
+        <span class="category-bar-count">${count}</span>
+      </div>
+    `;
+  });
+  
+  elements.categoryChart.innerHTML = html;
 }
 
 async function clearAll() {
@@ -1321,8 +1885,8 @@ async function loadRibbonMode() {
   if (result.ribbonMode === true) {
     state.ribbonMode = true;
     document.body.classList.add('ribbon-mode');
-    if (elements.ribbonToggle) {
-      elements.ribbonToggle.classList.add('active');
+    if (elements.brandIcon) {
+      elements.brandIcon.classList.add('quick-mode-active');
     }
     // Apply ribbons to cards after render
     setTimeout(() => addRibbonsToCards(), 100);
@@ -1337,22 +1901,18 @@ function toggleRibbonMode() {
   // Save ribbon mode state to storage
   chrome.storage.local.set({ ribbonMode: state.ribbonMode });
   
-  // Toggle body class for custom cursor
   if (state.ribbonMode) {
     document.body.classList.add('ribbon-mode');
-    elements.ribbonToggle.classList.add('active');
+    if (elements.brandIcon) {
+      elements.brandIcon.classList.add('quick-mode-active');
+    }
     
     // Show indicator briefly
     if (elements.ribbonIndicator) {
-      // Clear any existing timeout
       if (ribbonIndicatorTimeout) {
         clearTimeout(ribbonIndicatorTimeout);
       }
-      
-      // Show indicator
       elements.ribbonIndicator.classList.add('visible');
-      
-      // Hide after 1.5 seconds
       ribbonIndicatorTimeout = setTimeout(() => {
         elements.ribbonIndicator.classList.remove('visible');
       }, 1500);
@@ -1365,7 +1925,9 @@ function toggleRibbonMode() {
     startRibbonTrail();
   } else {
     document.body.classList.remove('ribbon-mode');
-    elements.ribbonToggle.classList.remove('active');
+    if (elements.brandIcon) {
+      elements.brandIcon.classList.remove('quick-mode-active');
+    }
     
     // Hide indicator immediately when turning off
     if (elements.ribbonIndicator) {
@@ -1746,6 +2308,103 @@ function setupDragToScroll() {
   container.addEventListener('touchend', () => {
     applyMomentum();
   }, { passive: true });
+}
+
+// ==========================================
+// SETTINGS FUNCTIONS
+// ==========================================
+
+async function loadSettings() {
+  try {
+    const result = await chrome.storage.local.get('settings');
+    if (result.settings) {
+      state.settings = { ...state.settings, ...result.settings };
+    }
+    applySettingsToUI();
+  } catch (e) {
+    console.error('Failed to load settings', e);
+  }
+}
+
+async function saveSettings() {
+  try {
+    await chrome.storage.local.set({ settings: state.settings });
+  } catch (e) {
+    console.error('Failed to save settings', e);
+  }
+}
+
+function applySettingsToUI() {
+  if (elements.settingExpandDefault) {
+    elements.settingExpandDefault.checked = state.settings.expandDefault;
+  }
+  if (elements.settingShowNotePreview) {
+    elements.settingShowNotePreview.checked = state.settings.showNotePreview;
+  }
+  if (elements.settingShowUrl) {
+    elements.settingShowUrl.checked = state.settings.showUrl;
+  }
+  if (elements.settingQuickModeEffects) {
+    elements.settingQuickModeEffects.checked = state.settings.quickModeEffects;
+  }
+  if (elements.settingConfirmDelete) {
+    elements.settingConfirmDelete.checked = state.settings.confirmDelete;
+  }
+  
+  // Update color picker
+  const colorPicks = document.querySelectorAll('.color-pick');
+  colorPicks.forEach(pick => {
+    pick.classList.toggle('active', pick.dataset.color === state.settings.defaultColor);
+  });
+}
+
+function setupSettingsHandlers() {
+  // Toggle handlers
+  const toggleSettings = [
+    { el: elements.settingExpandDefault, key: 'expandDefault' },
+    { el: elements.settingShowNotePreview, key: 'showNotePreview' },
+    { el: elements.settingShowUrl, key: 'showUrl' },
+    { el: elements.settingQuickModeEffects, key: 'quickModeEffects' },
+    { el: elements.settingConfirmDelete, key: 'confirmDelete' }
+  ];
+  
+  toggleSettings.forEach(({ el, key }) => {
+    if (el) {
+      el.addEventListener('change', async () => {
+        state.settings[key] = el.checked;
+        await saveSettings();
+        
+        // Re-render if display settings changed
+        if (['expandDefault', 'showNotePreview', 'showUrl'].includes(key)) {
+          render();
+        }
+      });
+    }
+  });
+  
+  // Color picker handlers
+  const colorPicks = document.querySelectorAll('.color-pick');
+  colorPicks.forEach(pick => {
+    pick.addEventListener('click', async () => {
+      colorPicks.forEach(p => p.classList.remove('active'));
+      pick.classList.add('active');
+      state.settings.defaultColor = pick.dataset.color;
+      await saveSettings();
+    });
+  });
+}
+
+function openSettingsModal() {
+  if (elements.settingsModal) {
+    applySettingsToUI();
+    elements.settingsModal.classList.remove('hidden');
+  }
+}
+
+function closeSettingsModal() {
+  if (elements.settingsModal) {
+    elements.settingsModal.classList.add('hidden');
+  }
 }
 
 document.addEventListener('DOMContentLoaded', init);
