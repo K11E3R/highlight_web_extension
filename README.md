@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="icons/icon128_0.png" alt="Highlighter Pro Logo" width="100" height="100">
+  <img src="icons/icon128_0.png" alt="Highlighter Pro Logo" width="120" height="120">
 </p>
 
 <h1 align="center">✨ Highlighter Pro</h1>
@@ -9,11 +9,11 @@
 </p>
 
 <p align="center">
-  <a href="#features">Features</a> •
-  <a href="#installation">Installation</a> •
-  <a href="#usage">Usage</a> •
-  <a href="#settings">Settings</a> •
-  <a href="#shortcuts">Shortcuts</a>
+  <a href="#-screenshots">Screenshots</a> •
+  <a href="#-features">Features</a> •
+  <a href="#-installation">Installation</a> •
+  <a href="#-usage">Usage</a> •
+  <a href="#%EF%B8%8F-settings">Settings</a>
 </p>
 
 <p align="center">
@@ -24,107 +24,130 @@
 
 ---
 
-## 🎬 Demo
-
-<p align="center">
-  <img src="https://via.placeholder.com/800x450/1a1a2e/ffffff?text=Demo+Video+Coming+Soon" alt="Demo Video" width="100%">
-</p>
-
-> **📹 Video Demo**: [Watch on YouTube](https://youtube.com) *(Coming Soon)*
-
----
-
 ## 📸 Screenshots
 
 <table>
-  <tr>
-    <td align="center">
-      <img src="https://via.placeholder.com/380x280/667eea/ffffff?text=Popup+Dashboard" alt="Dashboard">
-      <br><strong>Dashboard View</strong>
-    </td>
-    <td align="center">
-      <img src="https://via.placeholder.com/380x280/764ba2/ffffff?text=Highlight+Cards" alt="Cards">
-      <br><strong>Highlight Cards</strong>
-    </td>
-  </tr>
-  <tr>
-    <td align="center">
-      <img src="https://via.placeholder.com/380x280/f093fb/ffffff?text=Quick+Mode" alt="Quick Mode">
-      <br><strong>Quick Mode Effects</strong>
-    </td>
-    <td align="center">
-      <img src="https://via.placeholder.com/380x280/4facfe/ffffff?text=Settings+Panel" alt="Settings">
-      <br><strong>Settings Panel</strong>
-    </td>
-  </tr>
+<tr>
+<td width="50%">
+
+### 🏠 Main Interface
+<img src="screenshots/landingpage.png" alt="Main Dashboard" width="100%">
+
+**Clean, modern popup** with sidebar navigation, search bar, and beautiful gradient backgrounds. Quick access to all your highlights organized by page.
+
+</td>
+<td width="50%">
+
+### 🃏 Highlight Cards
+<img src="screenshots/card.png" alt="Highlight Card" width="100%">
+
+**Premium card design** with expandable content, category dropdown, word count, timestamps, and quick action buttons (favorite, copy, edit, locate, delete).
+
+</td>
+</tr>
+<tr>
+<td width="50%">
+
+### 🎨 Color Selection
+<img src="screenshots/selection.png" alt="Color Picker" width="100%">
+
+**Instant color picker** appears when you select text. Choose from 5 vibrant colors with one click. Includes quick link and AI features.
+
+</td>
+<td width="50%">
+
+### ⚙️ Settings Panel
+<img src="screenshots/settings.png" alt="Settings" width="100%">
+
+**20+ customizable options** for display, behavior, and filters. Toggle switches for everything from card animations to word counts.
+
+</td>
+</tr>
+</table>
+
+### ⚡ Quick Mode Effects
+
+<table>
+<tr>
+<td width="50%" align="center">
+
+<img src="screenshots/quick_mode_1.png" alt="Splash Cursor Effect" width="100%">
+
+**Splash Cursor** — WebGL fluid simulation creates stunning visual feedback as you move your cursor
+
+</td>
+<td width="50%" align="center">
+
+<img src="screenshots/quick_mode_2.png" alt="Ribbon Trail Effect" width="100%">
+
+**Ribbon Trail** — Rainbow cursor trail follows your movements for a delightful highlighting experience
+
+</td>
+</tr>
 </table>
 
 ---
 
 ## ✨ Features
 
-### 🎨 **Core Highlighting**
+### 🎨 Core Highlighting
 | Feature | Description |
 |---------|-------------|
-| **Multi-Color Palette** | 8 beautiful colors + custom color picker |
-| **Smart Selection** | Automatic tooltip appears on text selection |
+| **Multi-Color Palette** | 5 beautiful colors + custom picker |
+| **Smart Selection** | Color tooltip appears on text selection |
 | **Continuous Highlights** | Clean, unbroken highlight marks |
 | **Note Attachments** | Add context with personal notes |
-| **Category Organization** | Organize highlights into custom categories |
+| **Category Organization** | Organize highlights into categories |
 
-### 🖥️ **Modern Interface**
+### 🖥️ Modern Interface
 | Feature | Description |
 |---------|-------------|
 | **Glassmorphic Design** | Stunning frosted glass UI with depth |
-| **Premium Cards** | 3D perspective tilt, animated borders |
+| **Premium Cards** | Expandable cards with full details |
 | **Sidebar Navigation** | Quick access to all views |
-| **Dashboard Analytics** | Visual stats with color/category charts |
-| **Dark/Light Themes** | Automatic system theme detection |
+| **Search & Filter** | Find highlights instantly |
+| **Word Count & Timestamps** | Track your highlights |
 
-### ⚡ **Quick Mode**
+### ⚡ Quick Mode
 | Feature | Description |
 |---------|-------------|
 | **One-Click Activation** | Toggle via brand icon |
-| **Ribbon Trail Effect** | Colorful cursor trail animation |
 | **Splash Cursor** | WebGL fluid simulation effect |
-| **Individual Controls** | Enable/disable each effect separately |
+| **Ribbon Trail** | Colorful cursor trail animation |
+| **Individual Controls** | Enable/disable each effect |
 
-### 🔧 **Advanced Features**
+### 🔧 Advanced Features
 | Feature | Description |
 |---------|-------------|
-| **20+ Settings** | Full customization of behavior |
+| **20+ Settings** | Full customization |
 | **Import/Export** | JSON backup and sharing |
 | **PDF Support** | Highlight PDF documents |
-| **Search & Sort** | Find highlights instantly |
-| **Date Filters** | Filter by time range |
 | **Favorites** | Star important highlights |
 
 ---
 
 ## 📥 Installation
 
-### From Source (Developer Mode)
+### From Source
 
 ```bash
 # 1. Clone the repository
 git clone https://github.com/K11E3R/highlight_web_extension.git
 cd highlight_web_extension
 
-# 2. Install dependencies
-npm install
-
-# 3. Load in Chrome
-# - Open chrome://extensions
-# - Enable "Developer mode" (top right toggle)
-# - Click "Load unpacked"
-# - Select the repository folder
+# 2. Load in Chrome
+#    - Open chrome://extensions
+#    - Enable "Developer mode" (top right)
+#    - Click "Load unpacked"
+#    - Select the repository folder
 ```
 
 ### Quick Start
-1. **Pin the extension** to your toolbar for easy access
+
+1. **Pin the extension** to your toolbar
 2. **Visit any webpage** and select text
 3. **Choose a color** from the floating tooltip
-4. **Open the popup** to manage your highlights
+4. **Open the popup** to manage highlights
 
 ---
 
@@ -135,13 +158,13 @@ npm install
 1. **Select text** on any webpage
 2. **Color tooltip appears** automatically
 3. **Click a color** to highlight
-4. **Add notes** via the popup panel
+4. **Add notes** via the popup
 
-### Quick Mode (Power User Feature)
+### Quick Mode
 
-1. **Click the pen icon** in the popup header
-2. **Cursor effects activate** (ribbon trail + splash)
-3. **Highlight faster** with enhanced visual feedback
+1. **Click the brand icon** in the popup header
+2. **Visual effects activate** (splash + ribbon)
+3. **Highlight with style** — enhanced visual feedback
 4. **Toggle effects** individually in Settings
 
 ### Managing Highlights
@@ -149,12 +172,13 @@ npm install
 | Action | How To |
 |--------|--------|
 | **View All** | Click extension icon |
-| **Edit Note** | Click pencil icon on card |
+| **Expand Card** | Click the chevron (▼) |
+| **Edit Note** | Click pencil icon |
 | **Change Category** | Use dropdown on card |
 | **Delete** | Click trash icon |
-| **Locate on Page** | Click card to scroll to highlight |
+| **Locate** | Click card to scroll |
 | **Copy Text** | Click copy icon |
-| **Toggle Favorite** | Click star icon |
+| **Favorite** | Click star icon |
 
 ### Categories
 
@@ -167,63 +191,38 @@ npm install
 └── ➕ Create Custom...
 ```
 
-### Import/Export
-
-**Export:**
-- Open popup → Click sidebar → Export
-- Select categories to include
-- Download JSON file
-
-**Import:**
-- Open popup → Click sidebar → Import
-- Select JSON file
-- Choose category assignment
-- Highlights merge with existing
-
 ---
 
 ## ⚙️ Settings
 
-### Display Settings
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Expand cards by default | ❌ | Show full card content |
-| Show note preview | ✅ | Display notes on cards |
-| Show source URL | ✅ | Display page URL |
-| Show timestamp | ✅ | Display creation date |
-| Show word count | ❌ | Display text length |
-| Card animations | ✅ | Enable hover effects |
+### Display
+| Setting | Description |
+|---------|-------------|
+| Expand cards by default | Show full content |
+| Show note preview | Display notes on cards |
+| Show source URL | Display page URL |
+| Show timestamps | Display creation date |
+| Show word count | Display text length |
+| Card animations | Enable hover effects |
 
-### Behavior Settings
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Quick mode effects | ✅ | Master toggle for cursor effects |
-| ├─ Ribbon trail | ✅ | Colorful ribbon cursor |
-| └─ Splash cursor | ✅ | WebGL fluid effect |
-| Confirm before delete | ❌ | Ask before removing |
-| Auto-save | ✅ | Save changes instantly |
-| Click to open | ✅ | Navigate to highlight on click |
-| Selection tooltip | ✅ | Show color picker on selection |
+### Behavior
+| Setting | Description |
+|---------|-------------|
+| Quick mode effects | Master toggle |
+| ├─ Splash cursor | WebGL fluid effect |
+| └─ Ribbon trail | Colorful cursor trail |
+| Confirm before delete | Ask before removing |
+| Auto-save | Save changes instantly |
+| Selection tooltip | Show color picker |
 
-### Filter Settings
-| Setting | Default | Description |
-|---------|---------|-------------|
-| Color filter | ✅ | Filter by highlight color |
-| Category filter | ✅ | Filter by category |
-| Date filter | ✅ | Filter by time range |
-| Search | ✅ | Enable search bar |
-| Sort options | ✅ | Enable sorting |
-
----
-
-## ⌨️ Shortcuts
-
-| Shortcut | Action |
-|----------|--------|
-| `Click` extension icon | Open popup |
-| `Select text` | Show highlight tooltip |
-| `Ctrl + Click` card | Open source page |
-| `Esc` | Close modals/dropdowns |
+### Filters
+| Setting | Description |
+|---------|-------------|
+| Color filter | Filter by color |
+| Category filter | Filter by category |
+| Date filter | Filter by time |
+| Search | Enable search bar |
+| Sort options | Enable sorting |
 
 ---
 
@@ -231,52 +230,30 @@ npm install
 
 ```
 highlight_web_extension/
-├── manifest.json          # Extension configuration
-├── background.js          # Service worker (data management)
-├── contentScript.js       # Page injection (highlighting logic)
+├── manifest.json          # Extension config
+├── background.js          # Service worker
+├── contentScript.js       # Page injection
 ├── popup/
-│   ├── popup.html         # Popup UI structure
-│   ├── popup.js           # Popup logic & state
-│   ├── popup.css          # Styles (2000+ lines)
-│   ├── ribbons.js         # Ribbon trail effect
-│   └── splashCursor.js    # WebGL fluid simulation
+│   ├── popup.html         # UI structure
+│   ├── popup.js           # Logic & state
+│   ├── popup.css          # Styles
+│   ├── ribbons.js         # Ribbon trail
+│   └── splashCursor.js    # WebGL fluid
 ├── pdfViewer/             # PDF support
-│   ├── viewer.html
-│   ├── viewer.js
-│   └── viewer.css
-├── icons/                 # Extension icons
-└── scripts/               # Build tools
-```
-
-### Data Flow
-```
-User Action → Content Script → Background Service → Chrome Storage
-                    ↓                    ↓
-              DOM Highlight         Popup Update
+└── icons/                 # Extension icons
 ```
 
 ---
 
-## 🎨 Design System
+## 🎨 Color Palette
 
-### Color Palette
 | Color | Hex | Usage |
 |-------|-----|-------|
-| Yellow | `#ffd43b` | Default highlight |
-| Orange | `#ff922b` | Warm highlight |
-| Red | `#ff6b6b` | Important |
-| Pink | `#f06595` | Creative |
-| Purple | `#cc5de8` | Ideas |
-| Blue | `#4dabf7` | Reference |
-| Green | `#51cf66` | Verified |
-| Teal | `#20c997` | Notes |
-
-### UI Components
-- **Glassmorphic cards** with backdrop blur
-- **Animated gradient borders** on hover
-- **3D perspective tilt** effects
-- **Smooth spring animations**
-- **Multi-layer shadows** for depth
+| 🟡 Yellow | `#ffd43b` | Default |
+| 🟠 Orange | `#ff922b` | Warm |
+| 🔴 Red | `#ff6b6b` | Important |
+| 🟣 Purple | `#cc5de8` | Ideas |
+| 🔵 Blue | `#4dabf7` | Reference |
 
 ---
 
@@ -284,7 +261,7 @@ User Action → Content Script → Background Service → Chrome Storage
 
 1. Fork the repository
 2. Create feature branch (`git checkout -b feature/amazing`)
-3. Commit changes (`git commit -m 'Add amazing feature'`)
+3. Commit changes (`git commit -m 'Add feature'`)
 4. Push to branch (`git push origin feature/amazing`)
 5. Open Pull Request
 
@@ -293,14 +270,6 @@ User Action → Content Script → Background Service → Chrome Storage
 ## 📄 License
 
 MIT License - see [LICENSE](LICENSE) for details.
-
----
-
-## 🙏 Acknowledgments
-
-- **WebGL Fluid Simulation** - Inspired by [Pavel Dobryakov](https://github.com/PavelDoGreat)
-- **Ribbon Effect** - Custom implementation
-- **Icons** - Generated with custom script
 
 ---
 
