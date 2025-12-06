@@ -639,17 +639,36 @@ function getTextNodesInRange(range) {
   return textNodes;
 }
 
+/**
+ * Applies visual highlighting to a DOM range
+ * 
+ * @param {Range} range - The DOM range to highlight
+ * @param {string} id - Unique identifier for this highlight
+ * @param {string} color - Hex color code
+ * @param {boolean} isNew - Whether this is a new highlight (triggers animation)
+ * @returns {boolean} Success status
+ */
 function highlightRange(range, id, color, isNew = false) {
-  const spans = [];
+  // Validate inputs
+  if (!range || !id || !color) {
+    console.warn('highlightRange: Invalid parameters');
+    return false;
+  }
+  
+  // Check if range is valid and not collapsed
+  if (range.collapsed) {
+    console.warn('highlightRange: Range is collapsed');
+    return false;
+  }
 
-  // Create the highlight span
+  // Create the highlight span element
   function createHighlightSpan() {
-      const span = document.createElement('span');
-      span.className = HIGHLIGHT_CLASS;
-      span.dataset.highlightId = id;
-      span.style.setProperty('--highlight-color', color);
+    const span = document.createElement('span');
+    span.className = HIGHLIGHT_CLASS;
+    span.dataset.highlightId = id;
+    span.style.setProperty('--highlight-color', color);
     
-    // Apply semi-transparent background
+    // Convert hex to rgba for semi-transparent background
     if (color.startsWith('#')) {
       const r = parseInt(color.slice(1, 3), 16);
       const g = parseInt(color.slice(3, 5), 16);
@@ -658,38 +677,41 @@ function highlightRange(range, id, color, isNew = false) {
     } else {
       span.style.backgroundColor = color;
     }
-      
-      // Set text color for contrast
-      const textColor = getContrastTextColor(color);
-      span.style.setProperty('--highlight-text-color', textColor);
-      
+    
+    // Set text color for contrast
+    const textColor = getContrastTextColor(color);
+    span.style.setProperty('--highlight-text-color', textColor);
+    
     return span;
   }
   
+  let highlightSpan = null;
+  
   try {
-    // METHOD 1: Try surroundContents (works for simple selections within one element)
-    const span = createHighlightSpan();
-    range.surroundContents(span);
-    spans.push(span);
-  } catch (e) {
-    // METHOD 2: For complex selections spanning multiple elements
-    // Use extractContents + wrap everything in ONE span
+    // METHOD 1: surroundContents - works when selection is within a single text node
+    highlightSpan = createHighlightSpan();
+    range.surroundContents(highlightSpan);
+  } catch (e1) {
+    // METHOD 2: extractContents - works for complex/cross-element selections
     try {
       const contents = range.extractContents();
-      const span = createHighlightSpan();
-      
-      // Wrap ALL extracted content in the single span
-      span.appendChild(contents);
-      range.insertNode(span);
-      spans.push(span);
+      highlightSpan = createHighlightSpan();
+      highlightSpan.appendChild(contents);
+      range.insertNode(highlightSpan);
     } catch (e2) {
-      console.warn('Failed to highlight:', e2);
-      return spans;
+      console.warn('highlightRange: Both methods failed', { e1: e1.message, e2: e2.message });
+      return false;
     }
   }
+  
+  // Verify highlight was created
+  if (!highlightSpan || !highlightSpan.parentNode) {
+    console.warn('highlightRange: Span not inserted into DOM');
+    return false;
+  }
 
-  // Apply animation to the highlight (only for newly created highlights)
-  if (isNew && spans.length > 0) {
+  // Apply entrance animation for new highlights
+  if (isNew) {
     const animations = [
       { class: 'persistent-highlighter-wave', duration: 800 },
       { class: 'persistent-highlighter-bounce', duration: 900 },
@@ -701,25 +723,20 @@ function highlightRange(range, id, color, isNew = false) {
       { class: 'persistent-highlighter-rainbow', duration: 1000 }
     ];
     
-    const selectedAnimation = animations[Math.floor(Math.random() * animations.length)];
+    const animation = animations[Math.floor(Math.random() * animations.length)];
     
-    spans.forEach((span, index) => {
-      span.classList.add(selectedAnimation.class);
-      span.classList.add('persistent-highlighter-color-cycle');
-      
-      setTimeout(() => {
-        span.classList.remove(selectedAnimation.class);
-      }, selectedAnimation.duration);
-      
-      setTimeout(() => {
-        span.classList.remove('persistent-highlighter-color-cycle');
-      }, 3000);
-    });
+    highlightSpan.classList.add(animation.class);
+    highlightSpan.classList.add('persistent-highlighter-color-cycle');
     
-    showPlusOneNotification(spans[0]);
+    // Remove animation classes after completion
+    setTimeout(() => highlightSpan.classList.remove(animation.class), animation.duration);
+    setTimeout(() => highlightSpan.classList.remove('persistent-highlighter-color-cycle'), 3000);
+    
+    // Show +1 notification
+    showPlusOneNotification(highlightSpan);
   }
   
-  return spans;
+  return true;
 }
  
  function showPlusOneNotification(element) {
@@ -862,6 +879,32 @@ async function removeHighlightsByIds(ids) {
 // --- Tooltip UI ---
 
 let tooltip = null;
+let pendingHighlight = null; // Stores selection data when tooltip is shown
+
+/**
+ * Captures the current selection state for later use
+ * This is called when the tooltip appears, before user clicks a color
+ */
+function captureSelection() {
+  const selection = window.getSelection();
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+    return null;
+  }
+  
+  const range = selection.getRangeAt(0);
+  const text = range.toString().trim();
+  
+  if (!text) {
+    return null;
+  }
+  
+  // Store everything we need to create the highlight later
+  return {
+    range: range.cloneRange(),
+    text: text,
+    serialized: serializeRange(range)
+  };
+}
 
 function createTooltip() {
   if (document.getElementById(TOOLTIP_ID)) return document.getElementById(TOOLTIP_ID);
@@ -880,15 +923,43 @@ function createTooltip() {
 
   document.body.appendChild(el);
 
-  // Event Listeners
-  el.querySelector('#ph-btn-yellow').onclick = () => createHighlight('#ffd43b', 'yellow');
-  el.querySelector('#ph-btn-green').onclick = () => createHighlight('#51cf66', 'green');
-  el.querySelector('#ph-btn-blue').onclick = () => createHighlight('#4dabf7', 'blue');
-  el.querySelector('#ph-btn-purple').onclick = () => createHighlight('#9775fa', 'purple');
-  el.querySelector('#ph-btn-pink').onclick = () => createHighlight('#ff6ba7', 'pink');
-  el.querySelector('#ph-btn-delete').onclick = async () => {
-    const selection = window.getSelection();
-    if (!selection.isCollapsed) {
+  // Color buttons configuration
+  const colorButtons = [
+    { id: '#ph-btn-yellow', hex: '#ffd43b', name: 'yellow' },
+    { id: '#ph-btn-green', hex: '#51cf66', name: 'green' },
+    { id: '#ph-btn-blue', hex: '#4dabf7', name: 'blue' },
+    { id: '#ph-btn-purple', hex: '#9775fa', name: 'purple' },
+    { id: '#ph-btn-pink', hex: '#ff6ba7', name: 'pink' }
+  ];
+
+  // Attach click handlers to color buttons
+  colorButtons.forEach(({ id, hex, name }) => {
+    const btn = el.querySelector(id);
+    
+    // Use mousedown to capture before selection is cleared
+    btn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      
+      // Check if we have a pending highlight ready
+      if (pendingHighlight) {
+        applyHighlight(hex, name, pendingHighlight);
+      } else {
+        console.warn('No pending highlight data');
+      }
+    });
+  });
+
+  // Delete button handler
+  el.querySelector('#ph-btn-delete').addEventListener('mousedown', async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    if (pendingHighlight && pendingHighlight.range) {
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(pendingHighlight.range);
+      
       const highlightIds = getHighlightsInSelection(selection);
       if (highlightIds.length > 0) {
         await removeHighlightsByIds(highlightIds);
@@ -897,18 +968,17 @@ function createTooltip() {
         showToast('No highlights in selection', 'info');
       }
       selection.removeAllRanges();
-      hideTooltip();
     }
-  };
+    
+    pendingHighlight = null;
+    hideTooltip();
+  });
 
   return el;
 }
 
-function showTooltip(x, y, selection) {
+function showTooltip(x, y) {
   if (!tooltip) tooltip = createTooltip();
-
-  // Check if selection overlaps an existing highlight to show "Delete" or different options
-  // For simplicity, we always show colors.
 
   tooltip.style.left = `${x}px`;
   tooltip.style.top = `${y}px`;
@@ -917,6 +987,7 @@ function showTooltip(x, y, selection) {
 
 function hideTooltip() {
   if (tooltip) tooltip.classList.remove('visible');
+  pendingHighlight = null;
 }
 
 function handleSelection() {
@@ -926,19 +997,34 @@ function handleSelection() {
   }
   
   const selection = window.getSelection();
-  if (selection.isCollapsed || selection.toString().trim().length === 0) {
+  
+  // No selection or empty selection
+  if (!selection || selection.isCollapsed || selection.rangeCount === 0) {
+    hideTooltip();
+    return;
+  }
+  
+  const text = selection.toString().trim();
+  if (!text) {
     hideTooltip();
     return;
   }
 
+  // Capture the selection NOW before anything can clear it
+  pendingHighlight = captureSelection();
+  
+  if (!pendingHighlight) {
+    hideTooltip();
+    return;
+  }
+
+  // Calculate tooltip position
   const range = selection.getRangeAt(0);
   const rect = range.getBoundingClientRect();
-
-  // Calculate position (centered above selection)
-  const x = rect.left + (rect.width / 2) - 80 + window.scrollX; // approximate center
+  const x = rect.left + (rect.width / 2) - 80 + window.scrollX;
   const y = rect.top + window.scrollY - 50;
 
-  showTooltip(x, y, selection);
+  showTooltip(x, y);
 }
 
 function generateUUID() {
@@ -1015,189 +1101,97 @@ function safeRuntimeMessageCallback(message, callback) {
   }
 }
 
-function trimRange(range) {
-  // Clone the range to avoid modifying the original
-  const trimmedRange = range.cloneRange();
-  
-  // Helper function to move range start forward past whitespace
-  function trimStart(range) {
-    let startContainer = range.startContainer;
-    let startOffset = range.startOffset;
-    
-    // If start is in an element node, find the first text node
-    if (startContainer.nodeType !== Node.TEXT_NODE) {
-      const walker = document.createTreeWalker(
-        startContainer,
-        NodeFilter.SHOW_TEXT,
-        null
-      );
-      let node = walker.nextNode();
-      if (node) {
-        startContainer = node;
-        startOffset = 0;
-      }
-    }
-    
-    // If we're in a text node, skip leading whitespace
-    if (startContainer.nodeType === Node.TEXT_NODE) {
-      const text = startContainer.textContent;
-      while (startOffset < text.length && /\s/.test(text[startOffset])) {
-        startOffset++;
-      }
-      
-      // If we've consumed the entire text node, move to next text node
-      if (startOffset >= text.length) {
-        const walker = document.createTreeWalker(
-          range.commonAncestorContainer,
-          NodeFilter.SHOW_TEXT,
-          null
-        );
-        walker.currentNode = startContainer;
-        let nextNode = walker.nextNode();
-        
-        while (nextNode && nextNode !== range.endContainer) {
-          const nextText = nextNode.textContent;
-          const firstNonWhitespace = nextText.search(/\S/);
-          
-          if (firstNonWhitespace !== -1) {
-            startContainer = nextNode;
-            startOffset = firstNonWhitespace;
-            break;
-          }
-          nextNode = walker.nextNode();
-        }
-      }
-      
-      range.setStart(startContainer, startOffset);
-    }
-  }
-  
-  // Helper function to move range end backward past whitespace
-  function trimEnd(range) {
-    let endContainer = range.endContainer;
-    let endOffset = range.endOffset;
-    
-    // If end is in an element node, find the last text node
-    if (endContainer.nodeType !== Node.TEXT_NODE) {
-      const walker = document.createTreeWalker(
-        endContainer,
-        NodeFilter.SHOW_TEXT,
-        null
-      );
-      let node = walker.lastChild();
-      if (node) {
-        endContainer = node;
-        endOffset = node.textContent.length;
-      }
-    }
-    
-    // If we're in a text node, skip trailing whitespace
-    if (endContainer.nodeType === Node.TEXT_NODE) {
-      const text = endContainer.textContent;
-      while (endOffset > 0 && /\s/.test(text[endOffset - 1])) {
-        endOffset--;
-      }
-      
-      // If we've gone to the start of this text node, move to previous text node
-      if (endOffset === 0) {
-        const walker = document.createTreeWalker(
-          range.commonAncestorContainer,
-          NodeFilter.SHOW_TEXT,
-          null
-        );
-        walker.currentNode = endContainer;
-        let prevNode = walker.previousNode();
-        
-        while (prevNode && prevNode !== range.startContainer) {
-          const prevText = prevNode.textContent;
-          const lastNonWhitespace = prevText.search(/\S(?=\s*$)/);
-          
-          if (lastNonWhitespace !== -1) {
-            endContainer = prevNode;
-            endOffset = lastNonWhitespace + 1;
-            break;
-          }
-          prevNode = walker.previousNode();
-        }
-      }
-      
-      range.setEnd(endContainer, endOffset);
-    }
-  }
-  
-  // Trim both ends
-  trimStart(trimmedRange);
-  trimEnd(trimmedRange);
-  
-  // Validate the range
-  if (trimmedRange.collapsed || !trimmedRange.toString().trim()) {
-    return null;
-  }
-  
-  return trimmedRange;
-}
-
-async function createHighlight(color, colorName = 'yellow') {
-  // Proactive check for extension context
+/**
+ * Apply a highlight using pre-captured selection data
+ * This is the main function called when user clicks a color
+ * 
+ * @param {string} hexColor - The hex color code (e.g., '#ffd43b')
+ * @param {string} colorName - The color name (e.g., 'yellow')
+ * @param {Object} selectionData - Pre-captured selection data from captureSelection()
+ */
+async function applyHighlight(hexColor, colorName, selectionData) {
+  // Validate extension context
   if (!isExtensionContextValid()) {
     showContextInvalidatedToast();
     return;
   }
-
-  const selection = window.getSelection();
-  if (selection.isCollapsed) return;
-
-  let range = selection.getRangeAt(0);
   
-  // TRIM WHITESPACE FROM RANGE BOUNDARIES
-  // This ensures we never highlight leading/trailing spaces
-  const trimmedRange = trimRange(range);
-  
-  if (!trimmedRange) {
-    console.warn('No valid range after trimming');
+  // Validate selection data
+  if (!selectionData || !selectionData.range || !selectionData.text) {
+    console.warn('Invalid selection data');
+    showToast('Selection lost, please try again', 'error');
+    hideTooltip();
     return;
   }
   
-  range = trimmedRange;
+  const { range, text, serialized } = selectionData;
   
-  // Get the trimmed text
-  let selectedText = range.toString().trim();
-  
-  if (!selectedText) {
-    console.warn('No text found in selection after trimming');
-    return;
-  }
-  
+  // Generate unique ID
   const id = generateUUID();
-  const serialized = serializeRange(range);
-
-  // Optimistic UI update (modifies DOM)
-  highlightRange(range, id, color, true); // true = new highlight, apply animations
-  selection.removeAllRanges();
+  
+  // Apply highlight to DOM (visual feedback)
+  const success = highlightRange(range, id, hexColor, true);
+  
+  if (!success) {
+    console.warn('Failed to apply highlight to DOM');
+    showToast('Failed to highlight text', 'error');
+    hideTooltip();
+    return;
+  }
+  
+  // Clear selection and tooltip
+  window.getSelection().removeAllRanges();
+  pendingHighlight = null;
   hideTooltip();
-
-  // Save to storage
+  
+  // Build highlight object
   const highlight = {
     id,
-    color: colorName, // Save color name (yellow, green, blue, purple, pink)
-    hexColor: color, // Save hex value for display
-    text: selectedText,
+    color: colorName,
+    hexColor: hexColor,
+    text: text,
     note: '',
     url: window.location.href.split('#')[0],
     title: document.title,
     createdAt: Date.now(),
     range: serialized
   };
-
+  
+  // Save to storage
   const response = await safeRuntimeMessage({ type: 'SAVE_HIGHLIGHT', highlight });
+  
   if (!response?.success) {
     console.error('Failed to save highlight:', response?.error);
-    // Remove the highlight from DOM if save failed
     removeHighlight(id);
     showToast('Failed to save highlight', 'error');
   } else {
     showToast('Highlight saved', 'success');
   }
+}
+
+/**
+ * Legacy function for programmatic highlighting (e.g., from popup)
+ */
+async function createHighlight(color, colorName = 'yellow') {
+  if (!isExtensionContextValid()) {
+    showContextInvalidatedToast();
+    return;
+  }
+
+  // Try to capture current selection
+  const selectionData = captureSelection();
+  
+  if (!selectionData) {
+    // Try using pending highlight if available
+    if (pendingHighlight) {
+      await applyHighlight(color, colorName, pendingHighlight);
+    } else {
+      console.warn('No selection available');
+    }
+    return;
+  }
+  
+  await applyHighlight(color, colorName, selectionData);
 }
 
 // --- Initialization ---
@@ -1332,9 +1326,26 @@ function init() {
   
   injectStyles();
 
+  // Handle text selection - show tooltip
   document.addEventListener('mouseup', (e) => {
+    // Ignore if clicking on tooltip
+    if (tooltip && tooltip.contains(e.target)) {
+      return;
+    }
     // Wait slightly for selection to settle
     setTimeout(handleSelection, 10);
+  });
+
+  // Handle clicks on the page
+  document.addEventListener('mousedown', (e) => {
+    // If clicking outside tooltip, hide it
+    if (tooltip && !tooltip.contains(e.target)) {
+      // Only hide if no text is selected (allow click-drag selections)
+      const selection = window.getSelection();
+      if (!selection || selection.isCollapsed) {
+        hideTooltip();
+      }
+    }
   });
 
   // Handle clicks on existing highlights
@@ -1345,7 +1356,7 @@ function init() {
     }
   });
 
-  // Load highlights
+  // Load highlights from storage
   safeRuntimeMessageCallback({ type: 'GET_HIGHLIGHTS', url: window.location.href.split('#')[0] }, (response) => {
     if (response && response.highlights) {
       response.highlights.forEach(applyHighlightFromData);
