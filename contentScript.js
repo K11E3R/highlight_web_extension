@@ -3,6 +3,16 @@ const HIGHLIGHT_PULSE_CLASS = 'persistent-highlighter-pulse';
 const TOOLTIP_ID = 'persistent-highlighter-tooltip';
 const DEFAULT_COLOR = '#ffd43b'; // Yellow - matches CSS palette
 
+// Settings (loaded from storage)
+let showSelectionTooltip = true;
+
+// Load tooltip setting from storage on startup
+chrome.storage.local.get(['settings'], (result) => {
+  if (result.settings && typeof result.settings.showSelectionTooltip === 'boolean') {
+    showSelectionTooltip = result.settings.showSelectionTooltip;
+  }
+});
+
 // --- Styles ---
 
 function injectStyles() {
@@ -605,212 +615,35 @@ function serializeRange(range) {
 // --- Highlighting Logic ---
 
 function getTextNodesInRange(range) {
+  // Simplified: just return text nodes in the range
   const textNodes = [];
-  
-  // Clone range to avoid modifying original
-  const clonedRange = range.cloneRange();
-  
-  // Get start and end containers and offsets
-  let startContainer = clonedRange.startContainer;
-  let endContainer = clonedRange.endContainer;
-  let startOffset = clonedRange.startOffset;
-  let endOffset = clonedRange.endOffset;
-  
-  // If containers are not text nodes, find the actual text nodes
-  if (startContainer.nodeType !== Node.TEXT_NODE) {
-    // If startOffset points to a child node, find the first text node in/after it
-    if (startContainer.childNodes[startOffset]) {
-      const childAtOffset = startContainer.childNodes[startOffset];
-      if (childAtOffset.nodeType === Node.TEXT_NODE) {
-        startContainer = childAtOffset;
-      startOffset = 0;
-    } else {
-        // Find the first text node in this element
-        const walker = document.createTreeWalker(childAtOffset, NodeFilter.SHOW_TEXT, null);
-        const firstTextNode = walker.nextNode();
-        if (firstTextNode) {
-          startContainer = firstTextNode;
-          startOffset = 0;
-        }
-      }
-    } else {
-      // Fallback: walk through and count characters
-      const walker = document.createTreeWalker(startContainer, NodeFilter.SHOW_TEXT, null);
-      let node = walker.nextNode();
-      let charCount = 0;
-      while (node) {
-        const nodeLength = node.textContent.length;
-        if (charCount + nodeLength > startOffset) {
-          startContainer = node;
-          startOffset = startOffset - charCount;
-          break;
-        }
-        charCount += nodeLength;
-        node = walker.nextNode();
-      }
-    }
-  }
-  
-  if (endContainer.nodeType !== Node.TEXT_NODE) {
-    // If endOffset points to a child node, we need to find the text node BEFORE it
-    // because the range ends before that child node, not at its start
-    if (endOffset > 0 && endContainer.childNodes[endOffset - 1]) {
-      // Find the last text node in the previous child
-      const prevChild = endContainer.childNodes[endOffset - 1];
-      if (prevChild.nodeType === Node.TEXT_NODE) {
-        endContainer = prevChild;
-        endOffset = prevChild.textContent.length;
-    } else {
-        // Walk to find the last text node in this element
-        const walker = document.createTreeWalker(prevChild, NodeFilter.SHOW_TEXT, null);
-        let lastTextNode = null;
-        let node = walker.nextNode();
-        while (node) {
-          lastTextNode = node;
-          node = walker.nextNode();
-        }
-        if (lastTextNode) {
-          endContainer = lastTextNode;
-          endOffset = lastTextNode.textContent.length;
-        }
-      }
-    } else {
-      // Fallback: walk through and count characters
-      const walker = document.createTreeWalker(endContainer, NodeFilter.SHOW_TEXT, null);
-      let node = walker.nextNode();
-      let charCount = 0;
-      while (node) {
-        const nodeLength = node.textContent.length;
-        if (charCount + nodeLength >= endOffset) {
-          endContainer = node;
-          endOffset = endOffset - charCount;
-          break;
-        }
-        charCount += nodeLength;
-        node = walker.nextNode();
-      }
-    }
-  }
-  
-  // Now collect text nodes between start and end
-  if (!startContainer || !endContainer) return [];
-  
   const walker = document.createTreeWalker(
-    clonedRange.commonAncestorContainer,
+    range.commonAncestorContainer,
     NodeFilter.SHOW_TEXT,
     null
   );
   
   let node = walker.nextNode();
-  let collecting = false;
-  
   while (node) {
-    if (node === startContainer) {
-      collecting = true;
+    if (range.intersectsNode(node)) {
+      textNodes.push(node);
     }
-    
-    if (collecting) {
-      const nodeStart = node === startContainer ? startOffset : 0;
-      const nodeEnd = node === endContainer ? endOffset : node.textContent.length;
-      
-      if (nodeStart < nodeEnd) {
-        textNodes.push({
-          node: node,
-          startOffset: nodeStart,
-          endOffset: nodeEnd
-        });
-      }
-      
-      if (node === endContainer) {
-        break;
-      }
-    }
-    
     node = walker.nextNode();
+  }
+  
+  // Handle case where commonAncestorContainer is a text node itself
+  if (range.commonAncestorContainer.nodeType === Node.TEXT_NODE) {
+    return [range.commonAncestorContainer];
   }
   
   return textNodes;
 }
 
 function highlightRange(range, id, color, isNew = false) {
-  // Clone range to avoid modifying the original selection
-  const clonedRange = range.cloneRange();
-  const textNodeData = getTextNodesInRange(clonedRange);
   const spans = [];
-
-  if (textNodeData.length === 0) {
-    // Fallback: use the range's extractContents method approach
-    try {
-      const contents = clonedRange.extractContents();
-      const fragment = document.createDocumentFragment();
-      const span = document.createElement('span');
-      span.className = HIGHLIGHT_CLASS;
-      span.dataset.highlightId = id;
-      span.style.backgroundColor = color;
-      span.style.setProperty('--highlight-color', color);
-      
-      // Set text color for contrast
-      const textColor = getContrastTextColor(color);
-      span.style.setProperty('--highlight-text-color', textColor);
-      
-      span.appendChild(contents);
-      clonedRange.insertNode(span);
-      spans.push(span);
-      return spans;
-    } catch (e) {
-      console.warn('Failed to highlight using extractContents:', e);
-      return spans;
-    }
-  }
-
-  textNodeData.forEach(({ node, startOffset, endOffset }) => {
-    if (!node || !node.parentNode) return;
-    
-    // Skip empty text nodes
-    if (node.textContent.length === 0) return;
-    
-    // Ensure offsets are valid
-    const start = Math.max(0, Math.min(startOffset, node.textContent.length));
-    const end = Math.max(start, Math.min(endOffset, node.textContent.length));
-    
-    if (start >= end) return; // No actual selection
-    
-    // Extract the text to highlight
-    const textToHighlight = node.textContent.substring(start, end);
-    
-    // Split text node at boundaries first
-    let targetNode = node;
-    
-    // Case 1: Start is not at the beginning - split before
-    if (start > 0) {
-      targetNode = node.splitText(start);
-    }
-    
-    // Case 2: End is not at the end - split after
-    const actualEnd = end - start;
-    if (actualEnd < targetNode.textContent.length) {
-      targetNode.splitText(actualEnd);
-    }
-    
-    // Now split the target node into words and spaces
-    // Pattern: Match words (non-space) OR spaces (any length)
-    const parts = textToHighlight.match(/\S+|\s+/g) || [];
-    
-    if (parts.length === 0) return;
-    
-    const parent = targetNode.parentNode;
-    if (!parent) return;
-    
-    const fragment = document.createDocumentFragment();
-    
-    // Process each part and preserve ALL characters
-    parts.forEach((part) => {
-      // Check if this part is a word (contains non-whitespace)
-      const isWord = /\S/.test(part);
-      
-      // ONLY highlight words - NEVER highlight any whitespace (single space, multiple spaces, newlines, etc.)
-      if (isWord) {
-        // Highlight the word only
+  
+  // Create the highlight span
+  function createHighlightSpan() {
     const span = document.createElement('span');
     span.className = HIGHLIGHT_CLASS;
     span.dataset.highlightId = id;
@@ -829,50 +662,34 @@ function highlightRange(range, id, color, isNew = false) {
     // Set text color for contrast
     const textColor = getContrastTextColor(color);
     span.style.setProperty('--highlight-text-color', textColor);
-
-        span.textContent = part;
-        fragment.appendChild(span);
-        spans.push(span);
-      } else {
-        // This is whitespace (single space, multiple spaces, newlines, tabs, etc.)
-        // IMPORTANT: Don't highlight - add as plain text to preserve spacing
-        const textNode = document.createTextNode(part);
-        fragment.appendChild(textNode);
-      }
-    });
     
-    // Verify we're preserving all content before replacing
-    const fragmentText = Array.from(fragment.childNodes).map(n => n.textContent).join('');
-    if (fragmentText !== textToHighlight) {
-      console.warn('Text mismatch! Original:', textToHighlight, 'Fragment:', fragmentText);
-      // Fallback: just wrap everything in a single span if reconstruction failed
-      const fallbackSpan = document.createElement('span');
-      fallbackSpan.className = HIGHLIGHT_CLASS;
-      fallbackSpan.dataset.highlightId = id;
-      fallbackSpan.style.setProperty('--highlight-color', color);
-      if (color.startsWith('#')) {
-        const r = parseInt(color.slice(1, 3), 16);
-        const g = parseInt(color.slice(3, 5), 16);
-        const b = parseInt(color.slice(5, 7), 16);
-        fallbackSpan.style.backgroundColor = `rgba(${r}, ${g}, ${b}, 0.4)`;
-      } else {
-        fallbackSpan.style.backgroundColor = color;
-      }
-      fallbackSpan.textContent = textToHighlight;
-      const fallbackFragment = document.createDocumentFragment();
-      fallbackFragment.appendChild(fallbackSpan);
-      parent.replaceChild(fallbackFragment, targetNode);
-      spans.push(fallbackSpan);
-      return;
+    return span;
+  }
+  
+  try {
+    // METHOD 1: Try surroundContents (works for simple selections within one element)
+    const span = createHighlightSpan();
+    range.surroundContents(span);
+    spans.push(span);
+  } catch (e) {
+    // METHOD 2: For complex selections spanning multiple elements
+    // Use extractContents + wrap everything in ONE span
+    try {
+      const contents = range.extractContents();
+      const span = createHighlightSpan();
+      
+      // Wrap ALL extracted content in the single span
+      span.appendChild(contents);
+      range.insertNode(span);
+      spans.push(span);
+    } catch (e2) {
+      console.warn('Failed to highlight:', e2);
+      return spans;
     }
-    
-    // Replace the original text node with the fragment
-    parent.replaceChild(fragment, targetNode);
-   });
- 
-  // Apply random animation to all spans (only for newly created highlights)
+  }
+  
+  // Apply animation to the highlight (only for newly created highlights)
   if (isNew && spans.length > 0) {
-    // Available animation styles
     const animations = [
       { class: 'persistent-highlighter-wave', duration: 800 },
       { class: 'persistent-highlighter-bounce', duration: 900 },
@@ -884,34 +701,24 @@ function highlightRange(range, id, color, isNew = false) {
       { class: 'persistent-highlighter-rainbow', duration: 1000 }
     ];
     
-    // Randomly select one animation for this highlight
     const selectedAnimation = animations[Math.floor(Math.random() * animations.length)];
     
-    // Add animation with staggered delay
     spans.forEach((span, index) => {
-      // Apply the selected movement animation
       span.classList.add(selectedAnimation.class);
-      span.style.animationDelay = `${index * 0.05}s`; // Stagger by 50ms
-      
-      // Also apply color cycle animation (runs for 3 seconds)
       span.classList.add('persistent-highlighter-color-cycle');
       
-      // Remove movement animation class after it completes
       setTimeout(() => {
         span.classList.remove(selectedAnimation.class);
-        span.style.animationDelay = '';
-      }, selectedAnimation.duration + (index * 50));
+      }, selectedAnimation.duration);
       
-      // Remove color cycle animation after 3 seconds
       setTimeout(() => {
         span.classList.remove('persistent-highlighter-color-cycle');
       }, 3000);
     });
     
-    // Show +1 notification near the first span
     showPlusOneNotification(spans[0]);
-    }
-
+  }
+  
   return spans;
 }
  
@@ -1113,6 +920,11 @@ function hideTooltip() {
 }
 
 function handleSelection() {
+  // Check if tooltip is enabled
+  if (!showSelectionTooltip) {
+    return;
+  }
+  
   const selection = window.getSelection();
   if (selection.isCollapsed || selection.toString().trim().length === 0) {
     hideTooltip();
@@ -1698,6 +1510,16 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         response.highlights.forEach(applyHighlightFromData);
       }
     });
+    sendResponse({ success: true });
+  } else if (msg.type === 'UPDATE_TOOLTIP_SETTING') {
+    // Update the tooltip enabled setting
+    showSelectionTooltip = msg.enabled;
+    
+    // If disabled, hide any visible tooltip
+    if (!showSelectionTooltip) {
+      hideTooltip();
+    }
+    
     sendResponse({ success: true });
   }
 });

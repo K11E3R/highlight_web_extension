@@ -16,7 +16,7 @@
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M12 19l7-7 3 3-7 7-3-3z"/>
               <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
-            </svg>
+          </svg>
           </button>
         </div>
       </div>
@@ -286,14 +286,14 @@
       <!-- Highlights List -->
       <div class="highlights-wrapper">
         <div id="highlightsList" class="highlights">
-          <!-- Empty State -->
+        <!-- Empty State -->
           <div id="emptyState" class="empty">
             <div class="empty-visual">
               <div class="empty-circle"></div>
               <svg class="empty-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
                 <path d="M12 19l7-7 3 3-7 7-3-3z"/>
                 <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
-              </svg>
+            </svg>
             </div>
             <h3 class="empty-title">No highlights yet</h3>
             <p class="empty-desc">Select text on any page to highlight</p>
@@ -421,7 +421,7 @@
   <!-- Settings Modal -->
   <div id="settingsModal" class="modal hidden">
     <div class="modal-overlay"></div>
-    <div class="modal-panel">
+    <div class="modal-panel modal-settings">
       <header class="modal-header">
         <h2>Settings</h2>
         <button id="closeSettingsModal" class="modal-close" title="Close" aria-label="Close modal">
@@ -431,16 +431,26 @@
           </svg>
         </button>
       </header>
-      <div class="modal-content">
+      <div class="modal-content modal-scrollable">
+        <!-- Display Settings -->
         <div class="settings-section">
-          <h3 class="settings-title">Display</h3>
+          <h3 class="settings-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+              <circle cx="12" cy="12" r="3"/>
+            </svg>
+            Display
+          </h3>
           
           <label class="setting-item">
             <span class="setting-label">
               <span class="setting-name">Expand cards by default</span>
-              <span class="setting-desc">Show full highlight text when opening popup</span>
+              <span class="setting-desc">Show full content when opening popup</span>
             </span>
-            <input type="checkbox" id="settingExpandDefault" class="setting-toggle">
+            <label class="toggle">
+              <input type="checkbox" id="settingExpandDefault">
+              <span class="toggle-slider"></span>
+            </label>
           </label>
           
           <label class="setting-item">
@@ -448,7 +458,10 @@
               <span class="setting-name">Show note preview</span>
               <span class="setting-desc">Display note snippet on collapsed cards</span>
             </span>
-            <input type="checkbox" id="settingShowNotePreview" class="setting-toggle" checked>
+            <label class="toggle">
+              <input type="checkbox" id="settingShowNotePreview" checked>
+              <span class="toggle-slider"></span>
+            </label>
           </label>
           
           <label class="setting-item">
@@ -456,19 +469,86 @@
               <span class="setting-name">Show source URL</span>
               <span class="setting-desc">Display website URL in card footer</span>
             </span>
-            <input type="checkbox" id="settingShowUrl" class="setting-toggle" checked>
+            <label class="toggle">
+              <input type="checkbox" id="settingShowUrl" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          
+          <label class="setting-item">
+            <span class="setting-label">
+              <span class="setting-name">Show timestamps</span>
+              <span class="setting-desc">Display creation date and time</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingShowTimestamp" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          
+          <label class="setting-item">
+            <span class="setting-label">
+              <span class="setting-name">Show word count</span>
+              <span class="setting-desc">Display number of words in highlights</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingShowWordCount">
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          
+          <label class="setting-item">
+            <span class="setting-label">
+              <span class="setting-name">Card animations</span>
+              <span class="setting-desc">Enable smooth transitions and effects</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingCardAnimation" checked>
+              <span class="toggle-slider"></span>
+            </label>
           </label>
         </div>
         
+        <!-- Behavior Settings -->
         <div class="settings-section">
-          <h3 class="settings-title">Behavior</h3>
+          <h3 class="settings-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/>
+            </svg>
+            Behavior
+          </h3>
           
           <label class="setting-item">
             <span class="setting-label">
               <span class="setting-name">Quick mode effects</span>
               <span class="setting-desc">Enable visual effects when quick mode is on</span>
             </span>
-            <input type="checkbox" id="settingQuickModeEffects" class="setting-toggle" checked>
+            <label class="toggle">
+              <input type="checkbox" id="settingQuickModeEffects" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          
+          <label class="setting-item nested">
+            <span class="setting-label">
+              <span class="setting-name">🎀 Ribbon Trail</span>
+              <span class="setting-desc">Colorful ribbon that follows cursor</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingRibbonTrail" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          
+          <label class="setting-item nested">
+            <span class="setting-label">
+              <span class="setting-name">💧 Splash Cursor</span>
+              <span class="setting-desc">WebGL fluid simulation effect</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingSplashCursor" checked>
+              <span class="toggle-slider"></span>
+            </label>
           </label>
           
           <label class="setting-item">
@@ -476,12 +556,120 @@
               <span class="setting-name">Confirm before delete</span>
               <span class="setting-desc">Ask confirmation before deleting highlights</span>
             </span>
-            <input type="checkbox" id="settingConfirmDelete" class="setting-toggle">
+            <label class="toggle">
+              <input type="checkbox" id="settingConfirmDelete">
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          
+          <label class="setting-item">
+            <span class="setting-label">
+              <span class="setting-name">Auto-save notes</span>
+              <span class="setting-desc">Automatically save notes as you type</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingAutoSave" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          
+          <label class="setting-item">
+            <span class="setting-label">
+              <span class="setting-name">Click card to locate</span>
+              <span class="setting-desc">Click anywhere on card to find on page</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingClickToOpen" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          
+          <label class="setting-item">
+            <span class="setting-label">
+              <span class="setting-name">Selection Color Picker</span>
+              <span class="setting-desc">Show color tooltip when selecting text on pages</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingSelectionTooltip" checked>
+              <span class="toggle-slider"></span>
+            </label>
           </label>
         </div>
         
+        <!-- Filter Settings -->
         <div class="settings-section">
-          <h3 class="settings-title">Default highlight color</h3>
+          <h3 class="settings-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>
+            </svg>
+            Filters & Features
+          </h3>
+          
+          <label class="setting-item">
+            <span class="setting-label">
+              <span class="setting-name">Enable color filter</span>
+              <span class="setting-desc">Show/hide color filter buttons</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingEnableColorFilter" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          
+          <label class="setting-item">
+            <span class="setting-label">
+              <span class="setting-name">Enable category filter</span>
+              <span class="setting-desc">Show/hide category filter tabs</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingEnableCategoryFilter" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          
+          <label class="setting-item">
+            <span class="setting-label">
+              <span class="setting-name">Enable date filter</span>
+              <span class="setting-desc">Show/hide date range filter chips</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingEnableDateFilter" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          
+          <label class="setting-item">
+            <span class="setting-label">
+              <span class="setting-name">Enable search</span>
+              <span class="setting-desc">Show/hide search input box</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingEnableSearch" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+          
+          <label class="setting-item">
+            <span class="setting-label">
+              <span class="setting-name">Enable sort options</span>
+              <span class="setting-desc">Show/hide sort dropdown menu</span>
+            </span>
+            <label class="toggle">
+              <input type="checkbox" id="settingEnableSort" checked>
+              <span class="toggle-slider"></span>
+            </label>
+          </label>
+        </div>
+        
+        <!-- Default Values -->
+        <div class="settings-section">
+          <h3 class="settings-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M12 19l7-7 3 3-7 7-3-3z"/>
+              <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/>
+            </svg>
+            Default Highlight Color
+          </h3>
           <div class="color-picker-row">
             <button class="color-pick active" data-color="#ffd43b" style="background: #ffd43b" title="Yellow"></button>
             <button class="color-pick" data-color="#51cf66" style="background: #51cf66" title="Green"></button>
@@ -490,12 +678,52 @@
             <button class="color-pick" data-color="#ff6ba7" style="background: #ff6ba7" title="Pink"></button>
           </div>
         </div>
+        
+        <!-- Actions -->
+        <div class="settings-section">
+          <h3 class="settings-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+            Data Management
+          </h3>
+          <button id="runTestsBtn" class="btn-primary btn-full" style="margin-bottom: 12px;">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="20 6 9 17 4 12"/>
+            </svg>
+            Run Settings Tests
+          </button>
+          <button id="resetSettingsBtn" class="btn-secondary btn-full">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"/>
+              <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/>
+            </svg>
+            Reset All Settings
+          </button>
+        </div>
+        
+        <!-- Test Results -->
+        <div id="testResultsContainer" class="settings-section hidden">
+          <h3 class="settings-title">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+              <polyline points="14 2 14 8 20 8"/>
+              <line x1="16" y1="13" x2="8" y2="13"/>
+              <line x1="16" y1="17" x2="8" y2="17"/>
+              <polyline points="10 9 9 9 8 9"/>
+            </svg>
+            Test Results
+          </h3>
+          <div id="testResults"></div>
+        </div>
       </div>
     </div>
   </div>
 
   <script src="ribbons.js"></script>
   <script src="splashCursor.js"></script>
+  <script src="settingsTest.js"></script>
   <script src="popup.js" type="module"></script>
 </body>
 </html>

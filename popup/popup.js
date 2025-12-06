@@ -15,12 +15,30 @@ const state = {
   ribbonMode: false,
   // Settings
   settings: {
+    // Display
     expandDefault: false,
     showNotePreview: true,
     showUrl: true,
-    quickModeEffects: true,
+    showTimestamp: true,
+    showWordCount: false,
+    cardAnimation: true,
+    // Behavior
+    quickModeEffects: true, // Master toggle for quick mode effects
+    enableRibbonTrail: true, // Ribbon trail cursor effect
+    enableSplashCursor: true, // WebGL fluid splash cursor
     confirmDelete: false,
-    defaultColor: '#ffd43b'
+    autoSave: true,
+    clickToOpen: true,
+    showSelectionTooltip: true, // Show color picker on text selection
+    // Filters
+    enableColorFilter: true,
+    enableCategoryFilter: true,
+    enableDateFilter: true,
+    enableSearch: true,
+    enableSort: true,
+    // Defaults
+    defaultColor: '#ffd43b',
+    defaultCategory: 'uncategorized'
   }
 };
 
@@ -96,8 +114,26 @@ const elements = {
   settingExpandDefault: document.getElementById('settingExpandDefault'),
   settingShowNotePreview: document.getElementById('settingShowNotePreview'),
   settingShowUrl: document.getElementById('settingShowUrl'),
+  settingShowTimestamp: document.getElementById('settingShowTimestamp'),
+  settingShowWordCount: document.getElementById('settingShowWordCount'),
+  settingCardAnimation: document.getElementById('settingCardAnimation'),
   settingQuickModeEffects: document.getElementById('settingQuickModeEffects'),
-  settingConfirmDelete: document.getElementById('settingConfirmDelete')
+  settingRibbonTrail: document.getElementById('settingRibbonTrail'),
+  settingSplashCursor: document.getElementById('settingSplashCursor'),
+  settingConfirmDelete: document.getElementById('settingConfirmDelete'),
+  settingAutoSave: document.getElementById('settingAutoSave'),
+  settingClickToOpen: document.getElementById('settingClickToOpen'),
+  settingSelectionTooltip: document.getElementById('settingSelectionTooltip'),
+  settingEnableColorFilter: document.getElementById('settingEnableColorFilter'),
+  settingEnableCategoryFilter: document.getElementById('settingEnableCategoryFilter'),
+  settingEnableDateFilter: document.getElementById('settingEnableDateFilter'),
+  settingEnableSearch: document.getElementById('settingEnableSearch'),
+  settingEnableSort: document.getElementById('settingEnableSort'),
+  // Filter containers
+  colorFilterContainer: document.querySelector('.color-pills'),
+  categoryFilterContainer: document.querySelector('.category-tabs'),
+  dateFilterContainer: document.querySelector('.date-filter'),
+  searchBarContainer: document.querySelector('.search-bar')
 };
 
 // Utility functions for messaging
@@ -215,6 +251,9 @@ async function init() {
 
   if (!tab) return;
 
+  // Load settings first (before anything else)
+  await loadSettings();
+
   // Check if this is a PDF (but not already in our viewer)
   const isInOurViewer = tab.url.includes('pdfViewer/viewer.html');
   const isRegularPdf = !isInOurViewer && isPdfUrl(tab.url);
@@ -232,8 +271,23 @@ async function init() {
   
   // Load ribbon mode state from storage
   await loadRibbonMode();
+  
+  // Run quick health check on startup (silent)
+  if (window.SettingsTest) {
+    setTimeout(async () => {
+      const tester = new window.SettingsTest();
+      const report = await tester.runAllTests();
+      
+      if (report.success) {
+        console.log(`✅ Settings Health Check: All ${report.total} tests passed`);
+      } else {
+        console.warn(`⚠️ Settings Health Check: ${report.failed}/${report.total} tests failed`);
+        console.log('Run detailed tests from Settings > Run Settings Tests');
+      }
+    }, 500);
+  }
 
-  // Listeners
+  // Event Listeners
   if (elements.refreshBtn) {
     elements.refreshBtn.addEventListener('click', () => loadHighlights());
   }
@@ -391,8 +445,7 @@ async function init() {
     });
   }
   
-  // Load settings
-  loadSettings();
+  // Setup settings handlers
   setupSettingsHandlers();
 }
 
@@ -647,6 +700,9 @@ function createCard(highlight) {
   const categoryValue = highlight.category || 'uncategorized';
   const highlightUrl = highlight.sourceUrl || state.currentUrl;
   const isFavorite = highlight.favorite || false;
+  
+  // Calculate word count if needed
+  const wordCount = state.settings.showWordCount ? highlightText.split(/\s+/).filter(w => w.length > 0).length : 0;
 
   // Build category options
   const categoryOptions = ['uncategorized', ...state.categories].map(cat => 
@@ -661,6 +717,12 @@ function createCard(highlight) {
       sourceHtml = `<span class="card-url" title="${escapeHtml(highlight.sourceUrl)}">${escapeHtml(urlObj.hostname)}</span>`;
     } catch (e) {}
   }
+  
+  // Build footer content based on settings
+  let footerContent = [];
+  if (sourceHtml) footerContent.push(sourceHtml);
+  if (state.settings.showWordCount && wordCount > 0) footerContent.push(`<span class="card-word-count">${wordCount} word${wordCount !== 1 ? 's' : ''}</span>`);
+  if (state.settings.showTimestamp) footerContent.push(`<span class="card-date">${escapeHtml(timestamp)}</span>`);
 
   div.innerHTML = `
     <!-- Collapsed Header - Always visible -->
@@ -729,8 +791,7 @@ function createCard(highlight) {
       </div>
       
       <div class="card-footer">
-        ${sourceHtml}
-        <span class="card-date">${escapeHtml(timestamp)}</span>
+        ${footerContent.join('')}
       </div>
     </div>
     </div>
@@ -744,8 +805,7 @@ function createCard(highlight) {
     </div>
     
     <div class="card-footer">
-      ${sourceHtml}
-      <span class="card-date">${escapeHtml(timestamp)}</span>
+      ${footerContent.join('')}
     </div>
   `;
 
@@ -1000,6 +1060,12 @@ function formatTimestamp(timestamp) {
 }
 
 async function deleteHighlight(id, url) {
+  // Check if confirmation is needed
+  if (state.settings.confirmDelete) {
+    const confirmed = confirm('Are you sure you want to delete this highlight?');
+    if (!confirmed) return;
+  }
+  
   await chrome.runtime.sendMessage({
     type: 'DELETE_HIGHLIGHT',
     url: url,
@@ -1019,6 +1085,8 @@ async function deleteHighlight(id, url) {
       console.log('Content script not ready or not available on this page');
     }
   }
+  
+  showNotification('Highlight deleted', 'success');
 }
 
 async function updateNote(id, note, url) {
@@ -1921,8 +1989,15 @@ function toggleRibbonMode() {
     // Add ribbons to all cards
     addRibbonsToCards();
     
-    // Start ribbon trail effect
+    // Start ribbon trail effect (respects quickModeEffects setting)
     startRibbonTrail();
+    
+    // Show appropriate notification
+    if (state.settings.quickModeEffects) {
+      showNotification('Quick Mode activated with effects ✨', 'success');
+    } else {
+      showNotification('Quick Mode activated (effects disabled in settings)', 'info');
+    }
   } else {
     document.body.classList.remove('ribbon-mode');
     if (elements.brandIcon) {
@@ -1967,12 +2042,24 @@ function removeRibbonsFromCards() {
 
 // Ribbon Trail Effect Functions
 function startRibbonTrail() {
+  // Clean up existing effects
   if (ribbonTrail) {
     ribbonTrail.destroy();
+    ribbonTrail = null;
+  }
+  if (splashCursor) {
+    splashCursor.destroy();
+    splashCursor = null;
   }
   
-  // Initialize ribbon trail with adaptive colors (if available)
-  if (window.RibbonTrail) {
+  // Check if quick mode effects are enabled (master toggle)
+  if (!state.settings.quickModeEffects) {
+    console.log('Quick mode effects disabled in settings');
+    return;
+  }
+  
+  // Initialize ribbon trail with adaptive colors (if enabled)
+  if (state.settings.enableRibbonTrail && window.RibbonTrail) {
     ribbonTrail = new window.RibbonTrail({
       colors: ['#ffffff'],
       baseThickness: 17,
@@ -1986,14 +2073,11 @@ function startRibbonTrail() {
     
     ribbonTrail.init(document.body);
     document.addEventListener('mousemove', handleRibbonMouseMove);
+    console.log('Ribbon trail enabled');
   }
   
-  // Initialize splash cursor WebGL effect (if available)
-  if (splashCursor) {
-    splashCursor.destroy();
-  }
-  
-  if (window.SplashCursor) {
+  // Initialize splash cursor WebGL effect (if enabled)
+  if (state.settings.enableSplashCursor && window.SplashCursor) {
     splashCursor = new window.SplashCursor({
       SIM_RESOLUTION: 128,
       DYE_RESOLUTION: 1024,
@@ -2009,6 +2093,7 @@ function startRibbonTrail() {
       TRANSPARENT: true
     });
     splashCursor.init();
+    console.log('Splash cursor enabled');
   }
 }
 
@@ -2335,6 +2420,7 @@ async function saveSettings() {
 }
 
 function applySettingsToUI() {
+  // Display settings
   if (elements.settingExpandDefault) {
     elements.settingExpandDefault.checked = state.settings.expandDefault;
   }
@@ -2344,11 +2430,64 @@ function applySettingsToUI() {
   if (elements.settingShowUrl) {
     elements.settingShowUrl.checked = state.settings.showUrl;
   }
+  if (elements.settingShowTimestamp) {
+    elements.settingShowTimestamp.checked = state.settings.showTimestamp;
+  }
+  if (elements.settingShowWordCount) {
+    elements.settingShowWordCount.checked = state.settings.showWordCount;
+  }
+  if (elements.settingCardAnimation) {
+    elements.settingCardAnimation.checked = state.settings.cardAnimation;
+    document.body.classList.toggle('no-animations', !state.settings.cardAnimation);
+  }
+  
+  // Behavior settings
   if (elements.settingQuickModeEffects) {
     elements.settingQuickModeEffects.checked = state.settings.quickModeEffects;
   }
+  if (elements.settingRibbonTrail) {
+    elements.settingRibbonTrail.checked = state.settings.enableRibbonTrail;
+    // Disable if quick mode effects is off
+    elements.settingRibbonTrail.disabled = !state.settings.quickModeEffects;
+  }
+  if (elements.settingSplashCursor) {
+    elements.settingSplashCursor.checked = state.settings.enableSplashCursor;
+    // Disable if quick mode effects is off
+    elements.settingSplashCursor.disabled = !state.settings.quickModeEffects;
+  }
   if (elements.settingConfirmDelete) {
     elements.settingConfirmDelete.checked = state.settings.confirmDelete;
+  }
+  if (elements.settingAutoSave) {
+    elements.settingAutoSave.checked = state.settings.autoSave;
+  }
+  if (elements.settingClickToOpen) {
+    elements.settingClickToOpen.checked = state.settings.clickToOpen;
+  }
+  if (elements.settingSelectionTooltip) {
+    elements.settingSelectionTooltip.checked = state.settings.showSelectionTooltip;
+  }
+  
+  // Filter settings
+  if (elements.settingEnableColorFilter) {
+    elements.settingEnableColorFilter.checked = state.settings.enableColorFilter;
+    toggleFilter('color', state.settings.enableColorFilter);
+  }
+  if (elements.settingEnableCategoryFilter) {
+    elements.settingEnableCategoryFilter.checked = state.settings.enableCategoryFilter;
+    toggleFilter('category', state.settings.enableCategoryFilter);
+  }
+  if (elements.settingEnableDateFilter) {
+    elements.settingEnableDateFilter.checked = state.settings.enableDateFilter;
+    toggleFilter('date', state.settings.enableDateFilter);
+  }
+  if (elements.settingEnableSearch) {
+    elements.settingEnableSearch.checked = state.settings.enableSearch;
+    toggleFilter('search', state.settings.enableSearch);
+  }
+  if (elements.settingEnableSort) {
+    elements.settingEnableSort.checked = state.settings.enableSort;
+    toggleFilter('sort', state.settings.enableSort);
   }
   
   // Update color picker
@@ -2358,26 +2497,105 @@ function applySettingsToUI() {
   });
 }
 
+function toggleFilter(filterType, enabled) {
+  switch (filterType) {
+    case 'color':
+      if (elements.colorFilterContainer) {
+        elements.colorFilterContainer.parentElement.style.display = enabled ? '' : 'none';
+      }
+      break;
+    case 'category':
+      if (elements.categoryFilterContainer) {
+        elements.categoryFilterContainer.style.display = enabled ? '' : 'none';
+      }
+      break;
+    case 'date':
+      if (elements.dateFilterContainer) {
+        elements.dateFilterContainer.style.display = enabled ? '' : 'none';
+      }
+      break;
+    case 'search':
+      if (elements.searchBarContainer) {
+        elements.searchBarContainer.style.display = enabled ? '' : 'none';
+      }
+      break;
+    case 'sort':
+      if (elements.sortBtn) {
+        elements.sortBtn.parentElement.style.display = enabled ? '' : 'none';
+      }
+      break;
+  }
+}
+
 function setupSettingsHandlers() {
-  // Toggle handlers
-  const toggleSettings = [
-    { el: elements.settingExpandDefault, key: 'expandDefault' },
-    { el: elements.settingShowNotePreview, key: 'showNotePreview' },
-    { el: elements.settingShowUrl, key: 'showUrl' },
-    { el: elements.settingQuickModeEffects, key: 'quickModeEffects' },
-    { el: elements.settingConfirmDelete, key: 'confirmDelete' }
+  // Display settings
+  const displaySettings = [
+    { el: elements.settingExpandDefault, key: 'expandDefault', needsRender: true },
+    { el: elements.settingShowNotePreview, key: 'showNotePreview', needsRender: true },
+    { el: elements.settingShowUrl, key: 'showUrl', needsRender: true },
+    { el: elements.settingShowTimestamp, key: 'showTimestamp', needsRender: true },
+    { el: elements.settingShowWordCount, key: 'showWordCount', needsRender: true },
+    { el: elements.settingCardAnimation, key: 'cardAnimation', needsRender: false }
   ];
   
-  toggleSettings.forEach(({ el, key }) => {
+  displaySettings.forEach(({ el, key, needsRender }) => {
     if (el) {
       el.addEventListener('change', async () => {
         state.settings[key] = el.checked;
         await saveSettings();
         
-        // Re-render if display settings changed
-        if (['expandDefault', 'showNotePreview', 'showUrl'].includes(key)) {
+        // Apply special handling
+        if (key === 'cardAnimation') {
+          document.body.classList.toggle('no-animations', !el.checked);
+        }
+        
+        if (needsRender) {
           render();
         }
+      });
+    }
+  });
+  
+  // Behavior settings
+  const behaviorSettings = [
+    { el: elements.settingQuickModeEffects, key: 'quickModeEffects', handler: handleQuickModeEffectsChange },
+    { el: elements.settingRibbonTrail, key: 'enableRibbonTrail', handler: handleCursorEffectChange },
+    { el: elements.settingSplashCursor, key: 'enableSplashCursor', handler: handleCursorEffectChange },
+    { el: elements.settingConfirmDelete, key: 'confirmDelete' },
+    { el: elements.settingAutoSave, key: 'autoSave' },
+    { el: elements.settingClickToOpen, key: 'clickToOpen' },
+    { el: elements.settingSelectionTooltip, key: 'showSelectionTooltip', handler: handleSelectionTooltipChange }
+  ];
+  
+  behaviorSettings.forEach(({ el, key, handler }) => {
+    if (el) {
+      el.addEventListener('change', async () => {
+        state.settings[key] = el.checked;
+        await saveSettings();
+        
+        // Run custom handler if provided
+        if (handler) {
+          handler(el.checked);
+        }
+      });
+    }
+  });
+  
+  // Filter settings
+  const filterSettings = [
+    { el: elements.settingEnableColorFilter, key: 'enableColorFilter', type: 'color' },
+    { el: elements.settingEnableCategoryFilter, key: 'enableCategoryFilter', type: 'category' },
+    { el: elements.settingEnableDateFilter, key: 'enableDateFilter', type: 'date' },
+    { el: elements.settingEnableSearch, key: 'enableSearch', type: 'search' },
+    { el: elements.settingEnableSort, key: 'enableSort', type: 'sort' }
+  ];
+  
+  filterSettings.forEach(({ el, key, type }) => {
+    if (el) {
+      el.addEventListener('change', async () => {
+        state.settings[key] = el.checked;
+        await saveSettings();
+        toggleFilter(type, el.checked);
       });
     }
   });
@@ -2392,6 +2610,93 @@ function setupSettingsHandlers() {
       await saveSettings();
     });
   });
+  
+  // Reset settings button
+  const resetBtn = document.getElementById('resetSettingsBtn');
+  if (resetBtn) {
+    resetBtn.addEventListener('click', async () => {
+      if (confirm('Reset all settings to defaults? This cannot be undone.')) {
+        // Reset to defaults
+        state.settings = {
+          expandDefault: false,
+          showNotePreview: true,
+          showUrl: true,
+          showTimestamp: true,
+          showWordCount: false,
+          cardAnimation: true,
+          quickModeEffects: true,
+          enableRibbonTrail: true,
+          enableSplashCursor: true,
+          confirmDelete: false,
+          autoSave: true,
+          clickToOpen: true,
+          showSelectionTooltip: true,
+          enableColorFilter: true,
+          enableCategoryFilter: true,
+          enableDateFilter: true,
+          enableSearch: true,
+          enableSort: true,
+          defaultColor: '#ffd43b',
+          defaultCategory: 'uncategorized'
+        };
+        await saveSettings();
+        applySettingsToUI();
+        render();
+        showNotification('Settings reset to defaults', 'success');
+      }
+    });
+  }
+  
+  // Run tests button
+  const runTestsBtn = document.getElementById('runTestsBtn');
+  if (runTestsBtn) {
+    runTestsBtn.addEventListener('click', async () => {
+      if (!window.SettingsTest) {
+        showNotification('Test suite not loaded', 'error');
+        return;
+      }
+      
+      // Disable button and show loading
+      runTestsBtn.disabled = true;
+      runTestsBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
+          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
+        </svg>
+        Running Tests...
+      `;
+      
+      // Run tests
+      const tester = new window.SettingsTest();
+      const report = await tester.runAllTests();
+      
+      // Show results
+      const resultsContainer = document.getElementById('testResultsContainer');
+      const resultsDiv = document.getElementById('testResults');
+      if (resultsContainer && resultsDiv) {
+        resultsContainer.classList.remove('hidden');
+        resultsDiv.innerHTML = tester.generateHTML();
+        
+        // Scroll to results
+        resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+      
+      // Re-enable button
+      runTestsBtn.disabled = false;
+      runTestsBtn.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="20 6 9 17 4 12"/>
+        </svg>
+        Run Settings Tests
+      `;
+      
+      // Show notification
+      if (report.success) {
+        showNotification(`All ${report.total} tests passed! ✅`, 'success');
+      } else {
+        showNotification(`${report.failed} of ${report.total} tests failed`, 'error');
+      }
+    });
+  }
 }
 
 function openSettingsModal() {
@@ -2407,5 +2712,85 @@ function closeSettingsModal() {
   }
 }
 
+function handleQuickModeEffectsChange(enabled) {
+  // Enable/disable sub-toggles
+  if (elements.settingRibbonTrail) {
+    elements.settingRibbonTrail.disabled = !enabled;
+  }
+  if (elements.settingSplashCursor) {
+    elements.settingSplashCursor.disabled = !enabled;
+  }
+  
+  // If ribbon mode is active, restart effects based on new setting
+  if (state.ribbonMode) {
+    if (enabled) {
+      // Start effects based on individual settings
+      startRibbonTrail();
+      showNotification('Quick mode effects enabled', 'success');
+    } else {
+      // Stop all effects
+      stopRibbonTrail();
+      showNotification('Quick mode effects disabled', 'success');
+    }
+  }
+}
+
+function handleCursorEffectChange() {
+  // If ribbon mode is active, restart effects to apply new settings
+  if (state.ribbonMode && state.settings.quickModeEffects) {
+    stopRibbonTrail();
+    startRibbonTrail();
+    showNotification('Cursor effects updated', 'success');
+  }
+}
+
+async function handleSelectionTooltipChange(enabled) {
+  // Confirm with user for this important setting
+  const action = enabled ? 'enable' : 'disable';
+  const confirmed = confirm(`Are you sure you want to ${action} the selection color picker?\n\nThis controls whether the highlight toolbar appears when you select text on web pages.`);
+  
+  if (!confirmed) {
+    // Revert the setting
+    state.settings.showSelectionTooltip = !enabled;
+    if (elements.settingSelectionTooltip) {
+      elements.settingSelectionTooltip.checked = !enabled;
+    }
+    await saveSettings();
+    return;
+  }
+  
+  // Sync setting to all tabs
+  try {
+    const tabs = await chrome.tabs.query({});
+    for (const tab of tabs) {
+      if (tab.url && !tab.url.startsWith('chrome://') && !tab.url.startsWith('chrome-extension://')) {
+        try {
+          await chrome.tabs.sendMessage(tab.id, { 
+            type: 'UPDATE_TOOLTIP_SETTING', 
+            enabled 
+          });
+        } catch (e) {
+          // Tab might not have content script
+        }
+      }
+    }
+    
+    showNotification(`Selection color picker ${enabled ? 'enabled' : 'disabled'}`, 'success');
+  } catch (e) {
+    console.error('Failed to sync tooltip setting:', e);
+  }
+}
+
 document.addEventListener('DOMContentLoaded', init);
+
+// Expose key objects and functions for testing
+window.getState = () => state;
+window.getElements = () => elements;
+window.toggleFilter = toggleFilter;
+window.openSettingsModal = openSettingsModal;
+window.closeSettingsModal = closeSettingsModal;
+window.loadSettings = loadSettings;
+window.saveSettings = saveSettings;
+window.applySettingsToUI = applySettingsToUI;
+window.setupSettingsHandlers = setupSettingsHandlers;
 document.addEventListener('DOMContentLoaded', setupDragToScroll);
