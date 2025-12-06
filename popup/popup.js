@@ -268,24 +268,9 @@ async function init() {
   state.currentUrl = getActualUrl(tab.url);
   await loadCategories();
   await loadHighlights();
-  
+
   // Load ribbon mode state from storage
   await loadRibbonMode();
-  
-  // Run quick health check on startup (silent)
-  if (window.SettingsTest) {
-    setTimeout(async () => {
-      const tester = new window.SettingsTest();
-      const report = await tester.runAllTests();
-      
-      if (report.success) {
-        console.log(`✅ Settings Health Check: All ${report.total} tests passed`);
-      } else {
-        console.warn(`⚠️ Settings Health Check: ${report.failed}/${report.total} tests failed`);
-        console.log('Run detailed tests from Settings > Run Settings Tests');
-      }
-    }, 500);
-  }
 
   // Event Listeners
   if (elements.refreshBtn) {
@@ -636,7 +621,7 @@ function render() {
         } else if (state.view === 'favorites') {
           heading.textContent = 'No favorites yet';
         } else {
-          heading.textContent = state.view === 'page' ? 'No highlights yet' : 'No saved highlights';
+        heading.textContent = state.view === 'page' ? 'No highlights yet' : 'No saved highlights';
         }
       }
       if (desc) {
@@ -787,7 +772,7 @@ function createCard(highlight) {
         <div class="card-note-actions">
           <button class="card-note-save">Save</button>
           <button class="card-note-cancel">Cancel</button>
-        </div>
+    </div>
       </div>
       
       <div class="card-footer">
@@ -1002,7 +987,7 @@ function createCard(highlight) {
         url: highlight.sourceUrl,
         id: highlight.id
       });
-    };
+  };
   }
 
   return div;
@@ -2643,57 +2628,6 @@ function setupSettingsHandlers() {
         applySettingsToUI();
         render();
         showNotification('Settings reset to defaults', 'success');
-      }
-    });
-  }
-  
-  // Run tests button
-  const runTestsBtn = document.getElementById('runTestsBtn');
-  if (runTestsBtn) {
-    runTestsBtn.addEventListener('click', async () => {
-      if (!window.SettingsTest) {
-        showNotification('Test suite not loaded', 'error');
-        return;
-      }
-      
-      // Disable button and show loading
-      runTestsBtn.disabled = true;
-      runTestsBtn.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="animation: spin 1s linear infinite;">
-          <path d="M21 12a9 9 0 1 1-6.219-8.56"/>
-        </svg>
-        Running Tests...
-      `;
-      
-      // Run tests
-      const tester = new window.SettingsTest();
-      const report = await tester.runAllTests();
-      
-      // Show results
-      const resultsContainer = document.getElementById('testResultsContainer');
-      const resultsDiv = document.getElementById('testResults');
-      if (resultsContainer && resultsDiv) {
-        resultsContainer.classList.remove('hidden');
-        resultsDiv.innerHTML = tester.generateHTML();
-        
-        // Scroll to results
-        resultsContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-      }
-      
-      // Re-enable button
-      runTestsBtn.disabled = false;
-      runTestsBtn.innerHTML = `
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <polyline points="20 6 9 17 4 12"/>
-        </svg>
-        Run Settings Tests
-      `;
-      
-      // Show notification
-      if (report.success) {
-        showNotification(`All ${report.total} tests passed! ✅`, 'success');
-      } else {
-        showNotification(`${report.failed} of ${report.total} tests failed`, 'error');
       }
     });
   }

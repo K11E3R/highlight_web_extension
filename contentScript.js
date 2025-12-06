@@ -641,13 +641,13 @@ function getTextNodesInRange(range) {
 
 function highlightRange(range, id, color, isNew = false) {
   const spans = [];
-  
+
   // Create the highlight span
   function createHighlightSpan() {
-    const span = document.createElement('span');
-    span.className = HIGHLIGHT_CLASS;
-    span.dataset.highlightId = id;
-    span.style.setProperty('--highlight-color', color);
+      const span = document.createElement('span');
+      span.className = HIGHLIGHT_CLASS;
+      span.dataset.highlightId = id;
+      span.style.setProperty('--highlight-color', color);
     
     // Apply semi-transparent background
     if (color.startsWith('#')) {
@@ -658,11 +658,11 @@ function highlightRange(range, id, color, isNew = false) {
     } else {
       span.style.backgroundColor = color;
     }
-    
-    // Set text color for contrast
-    const textColor = getContrastTextColor(color);
-    span.style.setProperty('--highlight-text-color', textColor);
-    
+      
+      // Set text color for contrast
+      const textColor = getContrastTextColor(color);
+      span.style.setProperty('--highlight-text-color', textColor);
+      
     return span;
   }
   
@@ -687,7 +687,7 @@ function highlightRange(range, id, color, isNew = false) {
       return spans;
     }
   }
-  
+
   // Apply animation to the highlight (only for newly created highlights)
   if (isNew && spans.length > 0) {
     const animations = [
@@ -740,7 +740,7 @@ function highlightRange(range, id, color, isNew = false) {
        notification.parentNode.removeChild(notification);
      }
    }, 1200);
-   
+
    // Send message to background to blink badge
    chrome.runtime.sendMessage({ 
      type: 'HIGHLIGHT_CREATED',
@@ -756,20 +756,20 @@ function applyHighlightFromData(data) {
   
   if (!data.range || typeof data.range !== 'object') {
     return;
-  }
-  
+    }
+    
   // Validate range properties exist and are correct types
   const { startXPath, endXPath, startOffset, endOffset } = data.range;
   if (!startXPath || !endXPath || typeof startOffset !== 'number' || typeof endOffset !== 'number') {
     return;
-  }
+    }
 
   const startNode = getNodeFromXPath(startXPath);
   const endNode = getNodeFromXPath(endXPath);
 
   if (!startNode || !endNode) {
     return;
-  }
+}
 
   // Validate offsets
   const startLength = startNode.nodeType === Node.TEXT_NODE ? startNode.length : startNode.childNodes.length;
